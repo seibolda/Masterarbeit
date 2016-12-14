@@ -36,7 +36,9 @@ options = optimoptions(@fminunc,'Algorithm','quasi-newton');
 options = optimoptions(options,'SpecifyObjectiveGradient',true);
 
 lambda = 10;
-mygrad = @(x)objfungrad(x, [Dx;Dy],silhouette(:),lambda, 10);
+grad = [Dx;Dy];
+grad([silhouette(:)==0;silhouette(:)==0],:) = 0;
+mygrad = @(x)objfungrad(x, grad,silhouette(:),lambda, 10);
 
 [x,fval] = fminunc(mygrad,x0,options);
 
