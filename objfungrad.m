@@ -1,4 +1,4 @@
-function [f,gradf] = objfungrad(x, grad, sil, lambda, Vol)
+function [f,gradf] = objfungrad(x, grad, sil, lambda, Vol, u_tilde_k_plus_1, tao_u)
 
 gx = grad * x;
 N = size(x,1);
