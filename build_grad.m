@@ -1,4 +1,4 @@
-function [grad] = build_grad(m,n)
+function grad = build_grad(m,n)
 
 % create a row-vector containing n many ones.
 e = ones(n, 1);
