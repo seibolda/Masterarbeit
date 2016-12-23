@@ -23,7 +23,7 @@ surf(reshape(u_k_plus_1,m,n));
 tau_c = 1;
 c_tilde_k_plus_1 = img; % initialize with image
 
-c_k_plus_1 = solve_potts_model(c_tilde_k_plus_1, tau_c);
+c_k_plus_1 = solve_potts_model(c_tilde_k_plus_1, tau_c, 0.01);
 figure;
 imshow(c_k_plus_1);
 
@@ -34,7 +34,7 @@ grad_sil = grad * silhouette(:);
 l = [1,0,1];
 c = img(:);
 img_vec = img(:);
-
+%{
 for x = 1:m
     for y = 0:(n-1)
         idx = x + y*m;
@@ -43,7 +43,9 @@ for x = 1:m
         p = [grad_sil(idx), grad_sil(idx + m*n), -1];
         brackets = (img_vec(idx) - (dot(p, l) / grad_norm));
         
+        % A_T macht aus vector scalar
         u_tilde_k_plus_1(idx) = u_k_plus_1(idx) - brackets * (l(1) * k);
         c_tilde_k_plus_1(idx) = c_k_plus_1(idx) + brackets * ((dot(p,l) / grad_norm) * c_k_plus_1(idx));
     end
 end
+%}
