@@ -5,9 +5,9 @@ N = size(x,1);
 sq_norm_gx = gx(1:N).^2 + gx(N+1:end).^2;
 norm_tmp = sqrt(1 + sq_norm_gx);
 
-norm_tmp_tao = sqrt(sum((x - u_tilde_k_plus_1).^2));
+norm_tmp_tau = sqrt(sum((x - u_tilde_k_plus_1).^2));
 
-f = sum(norm_tmp) + lambda * (sum(sil.*x) - Vol)^2 + (1/(2*tau_u))*norm_tmp_tao^2;
+f = sum(norm_tmp) + lambda * (sum(sil.*x) - Vol)^2 + (1/(2*tau_u))*norm_tmp_tau^2;
 
 % Gradient of the objective function:
 if nargout  > 1
