@@ -26,8 +26,7 @@ Vol = 100000;
 grad = build_grad(m, n);
 grad([silhouette(:)==0;silhouette(:)==0],:) = 0;
 u_tilde_k_plus_1 = zeros(m*n,1); % set constant for now
-tau_u = 1000;
-tau_u2 = 0.1;
+tau_u = 1;
 
 u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, Vol, u_tilde_k_plus_1, tau_u);
 
@@ -44,15 +43,14 @@ camlight headlight
 
 
 % PottsLab
-tau_c = 0.01;
-tau_c2 = 100;
-gamma = 10;
+tau_c = 0.1;
+gamma = 15;
 
-c_tilde_k_plus_1 = silhouette;
-%~ c_tilde_k_plus_1 = silhouette.*img; % initialize with image
+%c_tilde_k_plus_1 = silhouette;
+c_tilde_k_plus_1 = img; % initialize with image
 
-c_k_plus_1 = c_tilde_k_plus_1;
-%~ c_k_plus_1 = solve_potts_model(c_tilde_k_plus_1, 1e-9*tau_c, gamma);
+%c_k_plus_1 = c_tilde_k_plus_1;
+c_k_plus_1 = solve_potts_model(c_tilde_k_plus_1, tau_c, gamma);
 
 
 figure(2);
@@ -68,6 +66,8 @@ l = [1,0,1];
 div_x = -transpose(grad(1:m*n,:));
 div_y = -transpose(grad(m*n+1:end,:));
 
+alpha = 1;
+
 for i = 0:100
 	% Shading
     grad_sil = grad * u_k_plus_1(:);
@@ -82,9 +82,9 @@ for i = 0:100
 	brackets = (img-l_dot_p./grad_norm.*c_k_plus_1);
 	brackets = brackets.*silhouette;
 	
-	c_tilde_k_plus_1 = c_k_plus_1  + (1./tau_c2)*brackets.*l_dot_p./ grad_norm;
+	c_tilde_k_plus_1 = c_k_plus_1  + alpha*(tau_c*brackets.*l_dot_p./ grad_norm);
 	
-	u_k_plus_1_shading = u_k_plus_1 + (div_x*(brackets(:) .* (l(1) .* k(:))) + div_y*(brackets(:) .* (l(2) .* k(:))))./tau_u2; 
+	u_k_plus_1_shading = u_k_plus_1 + alpha*((div_x*(brackets(:) .* (l(1) .* k(:))) + div_y*(brackets(:) .* (l(2) .* k(:)))).*tau_u); 
 	
     
     
