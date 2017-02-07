@@ -4,12 +4,12 @@ function [brackets, shading_grad_u, shading_grad_c] = compute_shading(u_k_plus_1
 
 grad_sil = grad * u_k_plus_1(:);
 
-p1 = reshape(grad_sil(1:m*n),m,n);
-p2 = reshape(grad_sil(m*n+1:end),m,n);
-grad_norm = sqrt(p1.^2+p2.^2+1);
+p1 = reshape(grad_sil(1:m*n), m, n);
+p2 = reshape(grad_sil(m*n+1:end), m, n);
+grad_norm = sqrt(p1.^2 + p2.^2 + 1);
 k = c_k_plus_1 ./ grad_norm;
 
-l_dot_p = (-l(1)*p1-l(2)*p2+l(3));
+l_dot_p = (l(1)*p1 + l(2)*p2 - l(3));
 
 brackets = (img - (l_dot_p./grad_norm) .* c_k_plus_1);
 brackets = brackets.*silhouette;

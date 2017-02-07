@@ -26,7 +26,7 @@ set(fig4, 'Name', 'c_k_plus_1_shading optimized', 'OuterPosition', [800, 0, 100,
 [m, n] = size(silhouette);
 lambda = 0.01;
 Vol = 100000;
-tau_u = 1;
+tau_u = 10;
 grad = build_grad(m, n);
 grad([silhouette(:)==0;silhouette(:)==0],:) = 0;
 div_x = -transpose(grad(1:m*n,:)); % Divergence x
@@ -81,6 +81,7 @@ for iteration = 0:100
     u_k = u_k_plus_1;
     c_k = c_k_plus_1;
     
+    %Line-search for tau_u and tau_c
     while true
         
         % Shading
@@ -97,16 +98,15 @@ for iteration = 0:100
         % shading
         [computed_shading, shading_grad_u, shading_grad_c] = compute_shading(u_k_plus_1, c_k_plus_1, grad, div_x, div_y, silhouette, img, l);
     
-        
+        % g_x = sum(sqrt(1 + grad_u(1:m*n).^2 + grad_u(m*n+1:end).^2)) + lambda * (sum(silhouette(:).*u_k_plus_1) - Vol)^2 + gamma * sum(abs(grad_c) > 1e-6);
         % check if step size tau_x is good
         [Q_L, p_L] = compute_correct_step_size(computed_shading, computed_shading_k, shading_grad_u, shading_grad_c, ...
-            u_k_plus_1, u_k, c_k_plus_1, c_k, ...
-            lambda, silhouette, tau_u, tau_c, grad, Vol, alpha, gamma);
+            u_k_plus_1, u_k, c_k_plus_1, c_k, tau_u, tau_c, alpha);
         
-        fprintf('Q_L: %d p_L: %d\n', Q_L, p_L);
+        fprintf('p_L: %d Q_L: %d tau_u: %d tau_c: %d\n', p_L, Q_L, tau_u, tau_c);
         
         
-        if Q_L > p_L
+        if p_L <= Q_L
             break
         end
         
