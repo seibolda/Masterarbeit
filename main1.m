@@ -2,8 +2,8 @@ close all;
 clear;
 
 % load data
-silhouette = double(rgb2gray(imread('data/silhouettes/archutah_sil_med.png'))) > 1;
-img = double(rgb2gray(imread('data/images/archutah_med.png')))/255;
+img = double(rgb2gray(imread('data/MIT-intrinsic/cup2/light07.png')))/65535;
+silhouette = double((imread('data/MIT-intrinsic/cup2/mask.png'))) > 1;
 
 addpath(genpath('minFunc_2012'));
 addpath(genpath('Pottslab0.42'));
@@ -11,30 +11,30 @@ setPLJavaPath(true);
 
 %figures
 fig1 = figure(1);
-set(fig1, 'Name', 'u_k_plus_1 initial', 'OuterPosition', [0, 500, 550, 500]);
+set(fig1, 'Name', 'u_k_plus_1 initial', 'OuterPosition', [0, 600, 550, 500]);
 fig2 = figure(2);
-set(fig2, 'Name', 'c_k_plus_1 initial', 'OuterPosition', [800, 500, 100, 100]);
+set(fig2, 'Name', 'c_k_plus_1 initial', 'OuterPosition', [800, 600, 100, 100]);
 fig3 = figure(3);
-set(fig3, 'Name', 'u_k_plus_1_shading optimized', 'OuterPosition', [0, 0, 550, 500]);
+set(fig3, 'Name', 'u_k_plus_1_shading optimized', 'OuterPosition', [0, 100, 550, 500]);
 fig4 = figure(4);
-set(fig4, 'Name', 'c_k_plus_1_shading optimized', 'OuterPosition', [800, 0, 100, 100]);
+set(fig4, 'Name', 'c_k_plus_1_shading optimized', 'OuterPosition', [800, 100, 100, 100]);
 
 
 %%% parameters %%%
 
 % for surface
 [m, n] = size(silhouette);
-minimal_surface_weight = 0.5;
-lambda = 0.01/minimal_surface_weight;
-Vol = 100000;
+minimal_surface_weight = 1;
+lambda = 1/minimal_surface_weight;
+Vol = 500000;
 tau_u = 10;
 grad = build_grad(m, n);
 grad([silhouette(:)==0;silhouette(:)==0],:) = 0;
 div_x = -transpose(grad(1:m*n,:)); % Divergence x
 div_y = -transpose(grad(m*n+1:end,:)); % Divergence y
 % for pottslab
-tau_c = 1;
-gamma = 0.1/minimal_surface_weight;
+tau_c = 10;
+gamma = 1/minimal_surface_weight;
 % for rest
 alpha = 1/minimal_surface_weight;
 l = [1,0,1]; % lighting vector
@@ -70,7 +70,7 @@ c_k_plus_1 = solve_potts_model(c_tilde_k_plus_1, tau_c, gamma);
 
 
 figure(2);
-imshow(c_k_plus_1,[]);
+imshow(c_k_plus_1, []);
 
 
 
