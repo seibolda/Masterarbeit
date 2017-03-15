@@ -2,8 +2,8 @@ function [Q_L, p_L] = compute_correct_step_size(computed_shading, computed_shadi
     u_k_plus_1, u_k, c_k_plus_1, c_k, tau_u, tau_c, alpha)
 
 Q_L = alpha * 0.5 * sum(computed_shading_k(:).^2) ...
-    + sum(((u_k_plus_1 - u_k) .* shading_grad_u) + ((c_k_plus_1(:) - c_k(:)) .* shading_grad_c(:))) ...
-    + sum((1/(2*tau_u)) * (u_k_plus_1 - u_k).^2 + (1/(2*tau_c)) * (c_k_plus_1(:) - c_k(:)).^2);
+    + sum(((u_k_plus_1 - u_k) .* shading_grad_u)) + sum((c_k_plus_1(:) - c_k(:)) .* shading_grad_c(:)) ...
+    + sum((1/(2*tau_u)) * (u_k_plus_1 - u_k).^2) + sum((1/(2*tau_c)) * (c_k_plus_1(:) - c_k(:)).^2);
 p_L = alpha * 0.5 * sum(computed_shading(:).^2);
 
 end

@@ -2,8 +2,10 @@ close all;
 clear;
 
 % load data
-img = double(rgb2gray(imread('data/MIT-intrinsic/cup2/light07.png')))/65535;
+img = double((imread('data/MIT-intrinsic/cup2/light07.png')))/65535;
 silhouette = double((imread('data/MIT-intrinsic/cup2/mask.png'))) > 1;
+reflectance = double(rgb2gray(imread('data/MIT-intrinsic/cup2/reflectance.png'))) / 65535;
+shading_MIT = double((imread('data/MIT-intrinsic/cup2/shading.png'))) / 65535;
 
 addpath(genpath('minFunc_2012'));
 addpath(genpath('Pottslab0.42'));
@@ -18,23 +20,25 @@ fig3 = figure(3);
 set(fig3, 'Name', 'u_k_plus_1_shading optimized', 'OuterPosition', [0, 100, 550, 500]);
 fig4 = figure(4);
 set(fig4, 'Name', 'c_k_plus_1_shading optimized', 'OuterPosition', [800, 100, 100, 100]);
+fig5 = figure(5);
+set(fig5, 'Name', 'shading optimized', 'OuterPosition', [1200, 100, 100, 100]);
 
 
 %%% parameters %%%
 
 % for surface
 [m, n] = size(silhouette);
-minimal_surface_weight = 1;
+minimal_surface_weight = 10;
 lambda = 1/minimal_surface_weight;
-Vol = 500000;
+Vol = 1000000;
 tau_u = 10;
 grad = build_grad(m, n);
 grad([silhouette(:)==0;silhouette(:)==0],:) = 0;
 div_x = -transpose(grad(1:m*n,:)); % Divergence x
 div_y = -transpose(grad(m*n+1:end,:)); % Divergence y
 % for pottslab
-tau_c = 10;
-gamma = 1/minimal_surface_weight;
+tau_c = 1;
+gamma = 0.1/minimal_surface_weight;
 % for rest
 alpha = 1/minimal_surface_weight;
 l = [1,0,1]; % lighting vector
@@ -64,6 +68,7 @@ camlight headlight
 
 %c_tilde_k_plus_1 = silhouette;
 c_tilde_k_plus_1 = img; % initialize with image
+%c_tilde_k_plus_1 = reflectance; % initialize with perfect albedo
 
 %c_k_plus_1 = c_tilde_k_plus_1;
 c_k_plus_1 = solve_potts_model(c_tilde_k_plus_1, tau_c, gamma);
@@ -128,7 +133,10 @@ for iteration_k = 0:100
 	camlight headlight
     
     figure(4);
-    imshow(reshape(c_k_plus_1,m,n),[]);
+    imshow(c_k_plus_1, []);
+    
+    figure(5);
+    imshow(shading_energy_k,[]);
     drawnow;
     
     
