@@ -2,7 +2,7 @@ close all;
 clear;
 
 % load data
-img = double((imread('data/MIT-intrinsic/cup2/light07.png')))/65535;
+img = double((imread('data/MIT-intrinsic/cup2/light01.png')))/65535;
 silhouette = double((imread('data/MIT-intrinsic/cup2/mask.png'))) > 1;
 reflectance = double(rgb2gray(imread('data/MIT-intrinsic/cup2/reflectance.png'))) / 65535;
 shading_MIT = double((imread('data/MIT-intrinsic/cup2/shading.png'))) / 65535;
@@ -17,11 +17,13 @@ set(fig1, 'Name', 'u_k_plus_1 initial', 'OuterPosition', [0, 600, 550, 500]);
 fig2 = figure(2);
 set(fig2, 'Name', 'c_k_plus_1 initial', 'OuterPosition', [800, 600, 100, 100]);
 fig3 = figure(3);
-set(fig3, 'Name', 'u_k_plus_1_shading optimized', 'OuterPosition', [0, 100, 550, 500]);
+set(fig3, 'Name', 'u_k_plus_1 shading_optimized', 'OuterPosition', [0, 100, 550, 500]);
 fig4 = figure(4);
-set(fig4, 'Name', 'c_k_plus_1_shading optimized', 'OuterPosition', [800, 100, 100, 100]);
+set(fig4, 'Name', 'c_k_plus_1 shading_optimized', 'OuterPosition', [800, 100, 100, 100]);
 fig5 = figure(5);
 set(fig5, 'Name', 'shading optimized', 'OuterPosition', [1200, 100, 100, 100]);
+fig6 = figure(6);
+set(fig6, 'Name', 'error: image - shading*albedo', 'OuterPosition', [1200, 600, 100, 100]);
 
 
 %%% parameters %%%
@@ -30,7 +32,7 @@ set(fig5, 'Name', 'shading optimized', 'OuterPosition', [1200, 100, 100, 100]);
 [m, n] = size(silhouette);
 minimal_surface_weight = 10;
 lambda = 1/minimal_surface_weight;
-Vol = 1000000;
+Vol = 2000000;
 tau_u = 10;
 grad = build_grad(m, n);
 grad([silhouette(:)==0;silhouette(:)==0],:) = 0;
@@ -38,11 +40,12 @@ div_x = -transpose(grad(1:m*n,:)); % Divergence x
 div_y = -transpose(grad(m*n+1:end,:)); % Divergence y
 % for pottslab
 tau_c = 1;
-gamma = 0.1/minimal_surface_weight;
+gamma = 0.01/minimal_surface_weight;
 % for rest
 alpha = 1/minimal_surface_weight;
-l = [1,0,1]; % lighting vector
+l = [-1,0,1]; % lighting vector
 eta = 0.5;
+smoothing_type = 'gradient';
 
 
 
@@ -51,7 +54,7 @@ eta = 0.5;
 % surface
 
 u_tilde_k_plus_1 = zeros(m*n,1); % set constant for now
-u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, Vol, u_tilde_k_plus_1, tau_u);
+u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, Vol, u_tilde_k_plus_1, tau_u, smoothing_type);
 
 
 figure(1);
@@ -96,7 +99,7 @@ for iteration_k = 0:100
 
         
         % Min Surface
-        u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, Vol, u_tilde_k_plus_1, tau_u);
+        u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, Vol, u_tilde_k_plus_1, tau_u, smoothing_type);
 
         % Potts
         c_k_plus_1 = solve_potts_model(c_tilde_k_plus_1, tau_c, gamma);
@@ -136,7 +139,10 @@ for iteration_k = 0:100
     imshow(c_k_plus_1, []);
     
     figure(5);
-    imshow(shading_energy_k,[]);
+    imshow(shading_energy_k - img, []);
+    
+    figure(6);
+    imshow(abs(shading_energy_k));
     drawnow;
     
     
