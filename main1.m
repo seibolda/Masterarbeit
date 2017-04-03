@@ -37,8 +37,8 @@ Vol = 20000;
 tau_u = 1;
 grad = build_grad(m, n);
 grad([silhouette(:)==0;silhouette(:)==0],:) = 0;
-div_x = -transpose(grad(1:m*n,:)); % Divergence x
-div_y = -transpose(grad(m*n+1:end,:)); % Divergence y
+div_x = -transpose(grad(1:m*n,:));
+div_y = -transpose(grad(m*n+1:end,:));
 % for pottslab
 tau_c = 0.1;
 gamma = 0.01/minimal_surface_weight;
@@ -48,106 +48,89 @@ l = [-1,0,-1]; % lighting vector
 l = l./(sqrt(sum(l.^2)));
 eta = 0.5;
 smoothing_type = 'gradient';
+scaling_factor = 2;
 
-
-
-
-
-% surface
-
-u_tilde_k_plus_1 = zeros(m*n,1); % set constant for now
-u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, Vol, u_tilde_k_plus_1, tau_u, smoothing_type);
-
-
-figure(1);
-surfl(reshape(u_k_plus_1,m,n));
-shading flat;
-axis ij
-axis equal
-colormap gray;
-view(145,30);
-camlight(0,-90)
-camlight headlight
-
-
-% PottsLab
-
+u_tilde_k_plus_1 = zeros(m*n,1); % set constant as initialization
 %c_tilde_k_plus_1 = silhouette;
 %c_tilde_k_plus_1 = img; % initialize with image
 c_tilde_k_plus_1 = reflectance; % initialize with perfect albedo
 
-c_k_plus_1 = c_tilde_k_plus_1;
-%c_k_plus_1 = solve_potts_model(c_tilde_k_plus_1, tau_c, gamma);
+for resizing_step = 0:2
+    % surface
+    u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, Vol, u_tilde_k_plus_1, tau_u, smoothing_type);
 
-
-figure(2);
-imshow(c_k_plus_1, []);
-
-
-
-
-
-for iteration_k = 0:1000
-    
-    [shading_energy_k, shading_grad_u_k, shading_grad_c_k, shading_k] = compute_shading(u_k_plus_1, c_k_plus_1, grad, div_x, div_y, silhouette, img, l, alpha);
-    u_k = u_k_plus_1;
-    c_k = c_k_plus_1;
-    
-    %Line-search for tau_u and tau_c
-    while true
-        
-        % Shading
-        c_tilde_k_plus_1 = c_k - shading_grad_c_k*tau_c;
-        u_tilde_k_plus_1 = u_k - shading_grad_u_k.*tau_u; 
-
-        
-        % Min Surface
-        u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, Vol, u_tilde_k_plus_1, tau_u, smoothing_type);
-
-        % Potts
-        c_k_plus_1 = solve_potts_model(c_tilde_k_plus_1, tau_c, gamma);
-        
-        % shading
-        [computed_shading, ~, ~, ~] = compute_shading(u_k_plus_1, c_k_plus_1, grad, div_x, div_y, silhouette, img, l, alpha);
-    
-        % check if step size tau_x is good
-        [Q_L, p_L] = compute_correct_step_size(computed_shading, shading_energy_k, shading_grad_u_k, shading_grad_c_k, ...
-            u_k_plus_1, u_k, c_k_plus_1, c_k, tau_u, tau_c, alpha);
-        
-        fprintf('Interation: %d p_L: %d Q_L: %d tau_u: %d tau_c: %d\n', iteration_k, p_L, Q_L, tau_u, tau_c);
-        
-        
-        if p_L <= Q_L
-            break
-        end
-        
-        tau_u = eta * tau_u; 
-        tau_c = eta * tau_c;
-        
-    end % end while
-    
-    
-    figure(3)
-    surfl(reshape(u_tilde_k_plus_1,m,n));
+    figure(1);
+    surfl(reshape(-u_k_plus_1,m,n));
     shading flat;
-    colormap gray;
     axis ij
     axis equal
-    view(145,30);
-	camlight(0,-90)
-	camlight headlight
-    
-    figure(4);
+    colormap gray;
+    view(-16,39);
+    camlight(0,-90)
+    camlight headlight
+
+
+    % PottsLab
+
+    %c_k_plus_1 = c_tilde_k_plus_1;
+    c_k_plus_1 = solve_potts_model(c_tilde_k_plus_1, tau_c, gamma);
+
+    figure(2);
     imshow(c_k_plus_1, []);
+
+
+
+
+
+    for iteration_k = 0:100
+
+        [shading_energy_k, shading_grad_u_k, shading_grad_c_k, shading_k] = compute_shading(u_k_plus_1, c_k_plus_1, grad, div_x, div_y, silhouette, img, l, alpha);
+        u_k = u_k_plus_1;
+        c_k = c_k_plus_1;
+
+        [u_k_plus_1, c_k_plus_1, u_tilde_k_plus_1, c_tilde_k_plus_1, tau_u, tau_c] = minimizing_with_line_search(tau_u, tau_c, u_k, c_k, shading_energy_k, shading_grad_u_k, shading_grad_c_k, silhouette, lambda, Vol, smoothing_type, gamma, alpha, l, grad, div_x, div_y, img, eta, iteration_k);
+
+        figure(3)
+        surfl(reshape(-u_tilde_k_plus_1,m,n));
+        shading flat;
+        colormap gray;
+        axis ij
+        axis equal
+        view(-16,39);
+        camlight(0,-90)
+        camlight headlight
+
+        figure(4);
+        imshow(c_k_plus_1, []);
+
+        figure(5);
+        imshow(shading_k);
+
+        figure(6);
+        imshow(abs(shading_energy_k),[]);
+        drawnow;
+
+    end;
     
-    figure(5);
-    imshow(shading_k);
-    
-    figure(6);
-    imshow(abs(shading_energy_k),[]);
-    drawnow;
     
     
-end; % end iterations
+    
+    img = imresize(img, scaling_factor);
+    silhouette = imresize(silhouette, scaling_factor);
+    reflectance = imresize(reflectance, scaling_factor);
+    shading_MIT = imresize(shading_MIT, scaling_factor);
+    u_tilde_k_plus_1 = imresize(reshape(u_tilde_k_plus_1,m,n),scaling_factor);
+    u_tilde_k_plus_1 = u_tilde_k_plus_1(:);
+    c_tilde_k_plus_1 = imresize(c_tilde_k_plus_1,scaling_factor);
+    [m, n] = size(silhouette);
+    grad = build_grad(m, n);
+    grad([silhouette(:)==0;silhouette(:)==0],:) = 0;
+    div_x = -transpose(grad(1:m*n,:));
+    div_y = -transpose(grad(m*n+1:end,:));
+    Vol = Vol * scaling_factor^(3);
+end
+
+
+
 
 
