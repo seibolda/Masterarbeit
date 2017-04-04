@@ -78,10 +78,8 @@ for resizing_step = 0:2
     figure(2);
     imshow(c_k_plus_1, []);
 
-
-
-
-
+    
+    
     for iteration_k = 0:100
 
         [shading_energy_k, shading_grad_u_k, shading_grad_c_k, shading_k] = compute_shading(u_k_plus_1, c_k_plus_1, grad, div_x, div_y, silhouette, img, l, alpha);
@@ -90,6 +88,25 @@ for resizing_step = 0:2
 
         [u_k_plus_1, c_k_plus_1, u_tilde_k_plus_1, c_tilde_k_plus_1, tau_u, tau_c] = minimizing_with_line_search(tau_u, tau_c, u_k, c_k, shading_energy_k, shading_grad_u_k, shading_grad_c_k, silhouette, lambda, Vol, smoothing_type, gamma, alpha, l, grad, div_x, div_y, img, eta, iteration_k);
 
+        
+        % estimate lighting
+        img_sil = rgb2gray(img);
+        img_sil = img_sil(silhouette);
+        albedo = rgb2gray(c_k_plus_1);
+        albedo = albedo(silhouette);
+        normals = grad * u_k_plus_1;
+        ux = normals(1:n*m);
+        ux = ux(silhouette);
+        uy = normals(n*m+1:end);
+        uy = uy(silhouette);
+        A = [ux, uy, -ones(size(ux,1),1)];
+        A = albedo .* A;
+
+        l = A \ img_sil;
+        l = l./(sqrt(sum(l.^2)));
+        
+        
+        
         figure(3)
         surfl(reshape(-u_tilde_k_plus_1,m,n));
         shading flat;
