@@ -13,10 +13,10 @@ int main(int argc, char **argv) {
     // We will do it right here, so that the run time measurements are accurate
     cudaDeviceSynchronize();  CUDA_CHECK;
 
-    size_t height = 0;
-    size_t width = 0;
-    size_t numberChannels = 0;
-    float gamma = 0;
+    uint32_t height = 0;
+    uint32_t width = 0;
+    uint32_t numberChannels = 0;
+    double gamma = 0;
 
     string image_path = "";
     bool ret = getParam("i", image_path, argc, argv);
@@ -35,11 +35,15 @@ int main(int argc, char **argv) {
     numberChannels = inputImage.GetChannels();
     ImageRGB outputImage(width, height);
 
+
+
     GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, width, height, numberChannels);
 
-    gpuPottsSolver.copyTest();
+    gpuPottsSolver.solvePottsProblem();
 
     gpuPottsSolver.downloadOuputImage(outputImage);
+
+
 
     inputImage.Show("Input Image", 100, 100);
     outputImage.Show("Output Image", 500, 100);
