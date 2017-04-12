@@ -1,7 +1,8 @@
 data/*
 *~
 Pottslab0.42/*
-*.txt
+javaclasspath.txt
 minFunc_2012/*
 fastms-master/*
 matlab-introduction/*
+Pottslab_cuda/cmake-build-debug

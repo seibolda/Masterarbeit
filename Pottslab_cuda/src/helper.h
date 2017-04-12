@@ -7,6 +7,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <string>
 #include <sstream>
+#include <cstdint>
 
 
 

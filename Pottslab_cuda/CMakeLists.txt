@@ -16,6 +16,8 @@ set(CUDA_NVCC_FLAGS
 set(SOURCE_FILES
         src/main.cu
         src/helper.cu
+        src/CudaBuffer.cu
+        src/Image.cpp
 )
 
 cuda_add_executable(Pottslab_cuda ${SOURCE_FILES})

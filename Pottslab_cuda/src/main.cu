@@ -1,6 +1,8 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
-#include "helper.h"
+#include "Image.h"
+
+#include "GPUPottsSolver.cu"
 
 using namespace std;
 
@@ -11,21 +13,36 @@ int main(int argc, char **argv) {
     // We will do it right here, so that the run time measurements are accurate
     cudaDeviceSynchronize();  CUDA_CHECK;
 
+    size_t height = 0;
+    size_t width = 0;
+    size_t numberChannels = 0;
+    float gamma = 0;
+
     string image_path = "";
     bool ret = getParam("i", image_path, argc, argv);
     if (!ret) cerr << "ERROR: no image specified" << endl;
     if (argc <= 1) { cout << "Usage: " << argv[0] << " -i <image> -gamma <gamma_value>" << endl; return 1; }
 
-    string gamma = "";
-    ret = getParam("gamma", gamma, argc, argv);
+    string gamma_str = "";
+    ret = getParam("gamma", gamma_str, argc, argv);
     if (!ret) cerr << "ERROR: no gamma value given" << endl;
     if (argc <= 1) { cout << "Usage: " << argv[0] << " -i <image> -gamma <gamma_value>" << endl; return 1; }
+    gamma = ::atof(gamma_str.c_str());
 
-    cv::Mat mIn = cv::imread(image_path.c_str(), -1);
+    ImageRGB inputImage(image_path, true);
+    height = inputImage.GetHeight();
+    width = inputImage.GetWidth();
+    numberChannels = inputImage.GetChannels();
+    ImageRGB outputImage(width, height);
 
-    showImage("imageIn", mIn, 100, 100);
+    GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, width, height, numberChannels);
 
+    gpuPottsSolver.copyTest();
 
+    gpuPottsSolver.downloadOuputImage(outputImage);
+
+    inputImage.Show("Input Image", 100, 100);
+    outputImage.Show("Output Image", 500, 100);
     cv::waitKey(0);
     cvDestroyAllWindows();
 
