@@ -5,4 +5,6 @@ javaclasspath.txt
 minFunc_2012/*
 fastms-master/*
 matlab-introduction/*
-Pottslab_cuda/cmake-build-debug
+Pottslab_cuda/cmake*
+Pottslab_cuda/Potts*
+Pottslab_cuda/.idea/*

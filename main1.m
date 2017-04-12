@@ -2,7 +2,7 @@ close all;
 clear;
 
 % load data
-scale = 0.25;
+scale = 1/16;
 img = double(imresize(imread('data/MIT-intrinsic/cup1/light01.png'), scale))/65535;
 silhouette = double(imresize(imread('data/MIT-intrinsic/cup1/mask.png'), scale)) > 1;
 reflectance = double(imresize(imread('data/MIT-intrinsic/cup1/reflectance.png'), scale)) / 65535;
@@ -33,9 +33,11 @@ set(fig6, 'Name', 'error: image - shading*albedo', 'OuterPosition', [1200, 600, 
 [m, n] = size(silhouette);
 minimal_surface_weight = 10;
 lambda = 1/minimal_surface_weight;
-Vol = 20000;
+Vol = 20000 / 8;
 tau_u = 1;
+h = 1/m;
 grad = build_grad(m, n);
+grad = grad ./ h;
 grad([silhouette(:)==0;silhouette(:)==0],:) = 0;
 div_x = -transpose(grad(1:m*n,:));
 div_y = -transpose(grad(m*n+1:end,:));
@@ -55,7 +57,7 @@ u_tilde_k_plus_1 = zeros(m*n,1); % set constant as initialization
 %c_tilde_k_plus_1 = img; % initialize with image
 c_tilde_k_plus_1 = reflectance; % initialize with perfect albedo
 
-for resizing_step = 0:2
+for resizing_step = 0:3
     % surface
     u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, Vol, u_tilde_k_plus_1, tau_u, smoothing_type);
 
@@ -146,6 +148,9 @@ for resizing_step = 0:2
     div_x = -transpose(grad(1:m*n,:));
     div_y = -transpose(grad(m*n+1:end,:));
     Vol = Vol * scaling_factor^(3);
+    gamma = gamma / scaling_factor;
+    h = 1/m;
+    grad = grad ./ h;
 end
 
 
