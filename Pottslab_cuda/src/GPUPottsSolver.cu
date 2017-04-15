@@ -26,9 +26,14 @@ private:
     CudaBuffer<float> temp;
     CudaBuffer<float> weights;
     CudaBuffer<float> weightsPrime;
+    CudaBuffer<float> d_error;
 
     dim3 block;
     dim3 grid;
+    dim3 blockHorizontal;
+    dim3 gridHorizontal;
+    dim3 blockVertical;
+    dim3 gridVertical;
 
     float computeFNorm(float* inputImage);
 
@@ -40,8 +45,8 @@ public:
 
         gamma = newGamma;
         gammaPrime = 0;
-        mu = 1;
-        error = std::numeric_limits<float>::infinity();
+        mu = 0.1;
+        error = 30000;//std::numeric_limits<float>::infinity();
         stopTol = 1;
         fNorm = computeFNorm(inputImage);
 
@@ -56,13 +61,19 @@ public:
         temp.CreateBuffer(h*w*nc);
         temp.SetBytewiseValue(0);
         weights.CreateBuffer(w*h);
-        weights.SetBytewiseValue(1);
+        weights.SetBytewiseValue(0);
         weightsPrime.CreateBuffer(w*h);
         weightsPrime.SetBytewiseValue(0);
+        d_error.CreateBuffer(1);
+        d_error.SetBytewiseValue(0);
 
         block = dim3(32, 32, 1); // 32*32 = 1024 threads
         // ensure enough blocks to cover w * h elements (round up)
         grid = dim3((w + block.x - 1) / block.x, (h + block.y - 1) / block.y, nc);
+        blockHorizontal = dim3(1024, 1, 1);
+        gridHorizontal = dim3((w + blockHorizontal.x - 1) / blockHorizontal.x), 1, 1;
+        blockVertical = dim3(1, 1024, 1);
+        gridVertical = dim3(1, (h + blockVertical.y - 1) / blockVertical.y, 1);
     }
 
     ~GPUPottsSolver() {
@@ -70,16 +81,45 @@ public:
         v.DestroyBuffer();
         lam.DestroyBuffer();
         temp.DestroyBuffer();
+        weights.DestroyBuffer();
+        weightsPrime.DestroyBuffer();
+        d_error.DestroyBuffer();
     }
 
     void solvePottsProblem() {
-        if (fNorm == 0) {
+        if (0 == fNorm) {
             return;
         }
+        uint32_t iteration = 0;
+
+        setWeightsKernel <<<grid, block>>> (weights.GetDevicePtr(), w, h);
+
         while (error >= stopTol * fNorm) {
-            //updateWeightsPrimeKernel <<<grid, block>>> (weights.GetDevicePtr());
+            gammaPrime = 2 * gamma;
+
+            updateWeightsPrimeKernel <<<grid, block>>> (weightsPrime.GetDevicePtr(), weights.GetDevicePtr(), w, h, mu);
+
+            prepareHorizontalPottsProblems <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
+                    weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam.GetDevicePtr(), mu, w, h, nc);
+            prepareVerticalPottsProblems <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
+                    weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam.GetDevicePtr(), mu, w, h, nc);
+
+            for(uint32_t row = 0; row < h; row++) {
+                applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(),
+                        weightsPrime.GetDevicePtr(), gammaPrime,row  w, h, nc);
+            }
+//            applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(), gammaPrime, w, h, nc);
+
+            updateLagrangeMultiplierKernel <<<grid,block>>> (u.GetDevicePtr(), v.GetDevicePtr(), lam.GetDevicePtr(),
+                    temp.GetDevicePtr(), mu, w, h, nc);
+            updateErrorKernel <<<grid, block>>> (d_error.GetDevicePtr(), temp.GetDevicePtr(), w, h, nc);
+            error = d_error.DownloadData()[0];
+
+            printf("Iteration: %d\n, error: %f", iteration, error);
+            iteration++;
             break;
         }
+
     }
 
     void downloadOuputImage(ImageRGB outputImage) {
