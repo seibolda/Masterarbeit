@@ -17,6 +17,7 @@ int main(int argc, char **argv) {
     uint32_t width = 0;
     uint32_t numberChannels = 0;
     double gamma = 0;
+    Timer timer;
 
     string image_path = "";
     bool ret = getParam("i", image_path, argc, argv);
@@ -36,14 +37,16 @@ int main(int argc, char **argv) {
     ImageRGB outputImage(width, height);
 
 
-
     GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, width, height, numberChannels);
 
+    timer.start();
     gpuPottsSolver.solvePottsProblem();
+    timer.end();
 
     gpuPottsSolver.downloadOuputImage(outputImage);
 
 
+    cout << "Duration: " << timer.get() * 1000 << "ms" << endl;
 
     inputImage.Show("Input Image", 100, 100);
     outputImage.Show("Output Image", 500, 100);

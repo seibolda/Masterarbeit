@@ -46,7 +46,7 @@ public:
         gamma = newGamma;
         gammaPrime = 0;
         mu = 0.1;
-        error = 30000;//std::numeric_limits<float>::infinity();
+        error = std::numeric_limits<float>::infinity();
         stopTol = 1;
         fNorm = computeFNorm(inputImage);
 
@@ -70,10 +70,10 @@ public:
         block = dim3(32, 32, 1); // 32*32 = 1024 threads
         // ensure enough blocks to cover w * h elements (round up)
         grid = dim3((w + block.x - 1) / block.x, (h + block.y - 1) / block.y, nc);
-        blockHorizontal = dim3(1024, 1, 1);
-        gridHorizontal = dim3((w + blockHorizontal.x - 1) / blockHorizontal.x), 1, 1;
-        blockVertical = dim3(1, 1024, 1);
-        gridVertical = dim3(1, (h + blockVertical.y - 1) / blockVertical.y, 1);
+        blockHorizontal = dim3(1, 1024, 1);
+        gridHorizontal = dim3(1, (h + blockHorizontal.y - 1) / blockHorizontal.y, 1);
+        blockVertical = dim3(1024, 1, 1);
+        gridVertical = dim3((w + blockVertical.x - 1) / blockVertical.x, 1, 1);
     }
 
     ~GPUPottsSolver() {
@@ -98,24 +98,29 @@ public:
             gammaPrime = 2 * gamma;
 
             updateWeightsPrimeKernel <<<grid, block>>> (weightsPrime.GetDevicePtr(), weights.GetDevicePtr(), w, h, mu);
+            CUDA_CHECK;
 
             prepareHorizontalPottsProblems <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
                     weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam.GetDevicePtr(), mu, w, h, nc);
+            CUDA_CHECK;
             prepareVerticalPottsProblems <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
                     weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam.GetDevicePtr(), mu, w, h, nc);
+            CUDA_CHECK;
 
-            for(uint32_t row = 0; row < h; row++) {
-                applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(),
-                        weightsPrime.GetDevicePtr(), gammaPrime,row  w, h, nc);
-            }
-//            applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(), gammaPrime, w, h, nc);
+
+            applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(), gammaPrime, w, h, nc);
+            CUDA_CHECK;
+            applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(), gammaPrime, w, h, nc);
+            CUDA_CHECK;
+
 
             updateLagrangeMultiplierKernel <<<grid,block>>> (u.GetDevicePtr(), v.GetDevicePtr(), lam.GetDevicePtr(),
                     temp.GetDevicePtr(), mu, w, h, nc);
+            CUDA_CHECK;
             updateErrorKernel <<<grid, block>>> (d_error.GetDevicePtr(), temp.GetDevicePtr(), w, h, nc);
+            CUDA_CHECK;
             error = d_error.DownloadData()[0];
-
-            printf("Iteration: %d\n, error: %f", iteration, error);
+            printf("Iteration: %d error: %f\n", iteration, error);
             iteration++;
             break;
         }
