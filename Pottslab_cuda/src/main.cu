@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
     ImageRGB outputImage(width, height);
 
 
-    GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, width, height, numberChannels);
+    GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, 2, width, height, numberChannels);
 
     timer.start();
     gpuPottsSolver.solvePottsProblem();

@@ -11,6 +11,7 @@ private:
     float gamma;
     float gammaPrime;
     float mu;
+    float muStep;
     float error;
     float stopTol;
     float fNorm;
@@ -38,22 +39,23 @@ private:
     float computeFNorm(float* inputImage);
 
 public:
-    GPUPottsSolver(float* inputImage, float newGamma, size_t newW, size_t newH, size_t newNc) {
+    GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc) {
         h = newH;
         w = newW;
         nc = newNc;
 
         gamma = newGamma;
         gammaPrime = 0;
-        mu = 0.1;
+        mu = 0.5;
+        muStep = newMuStep;
         error = std::numeric_limits<float>::infinity();
-        stopTol = 1;
+        stopTol = 0.0001;
         fNorm = computeFNorm(inputImage);
 
         d_inputImage.CreateBuffer(h*w*nc);
         d_inputImage.UploadData(inputImage);
         u.CreateBuffer(h*w*nc);
-        u.UploadData(inputImage);
+        u.SetBytewiseValue(0);
         v.CreateBuffer(h*w*nc);
         v.UploadData(inputImage);
         lam.CreateBuffer(h*w*nc);
@@ -94,8 +96,9 @@ public:
 
         setWeightsKernel <<<grid, block>>> (weights.GetDevicePtr(), w, h);
 
+        gammaPrime = 2 * gamma;
+
         while (error >= stopTol * fNorm) {
-            gammaPrime = 2 * gamma;
 
             updateWeightsPrimeKernel <<<grid, block>>> (weightsPrime.GetDevicePtr(), weights.GetDevicePtr(), w, h, mu);
             CUDA_CHECK;
@@ -120,9 +123,14 @@ public:
             updateErrorKernel <<<grid, block>>> (d_error.GetDevicePtr(), temp.GetDevicePtr(), w, h, nc);
             CUDA_CHECK;
             error = d_error.DownloadData()[0];
+            d_error.SetBytewiseValue(0);
             printf("Iteration: %d error: %f\n", iteration, error);
             iteration++;
-            break;
+
+            mu = mu * muStep;
+
+            if(iteration > 50)
+                break;
         }
 
     }

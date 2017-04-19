@@ -119,7 +119,7 @@ for resizing_step = 0:3
         view(-16,39);
         camlight(0,-90)
         camlight headlight
-
+        
         figure(4);
         imshow(c_k_plus_1, []);
 
@@ -152,6 +152,16 @@ for resizing_step = 0:3
     h = 1/m;
     grad = grad ./ h;
 end
+
+saveImg = getframe(fig3);
+saveImg = imresize(saveImg.cdata, [600 800]);
+imwrite(saveImg, strcat('data/','u_k_',...
+    'lambda_',num2str(lambda),...
+    '_gamma_',num2str(gamma),...
+    '_alpha_',num2str(alpha),...
+    '_minSurfWeight_',num2str(minimal_surface_weight),...
+    '.png'), 'png');
+
 
 
 
