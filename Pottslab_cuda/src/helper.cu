@@ -165,3 +165,52 @@ void cuda_check(string file, int line)
     prev_file = file;
     prev_line = line;
 }
+
+// cublas error checking
+string prev_file_cublas = "";
+int prev_line_cublas = 0;
+void CUBLAS_CHECK(cublasStatus_t error)
+{
+    string errLine = "";
+    switch (error)
+    {
+        case CUBLAS_STATUS_SUCCESS:
+//            errLine = "CUSOLVER_STATUS_SUCCESS";
+            break;
+        case CUBLAS_STATUS_NOT_SUPPORTED:
+            errLine = "CUBLAS_STATUS_NOT_SUPPORTED";
+            break;
+        case CUBLAS_STATUS_LICENSE_ERROR:
+            errLine = "CUBLAS_STATUS_LICENSE_ERROR";
+            break;
+        case CUBLAS_STATUS_NOT_INITIALIZED:
+            errLine = "CUBLAS_STATUS_NOT_INITIALIZED";
+            break;
+        case CUBLAS_STATUS_ALLOC_FAILED:
+            errLine = "CUBLAS_STATUS_ALLOC_FAILED";
+            break;
+        case CUBLAS_STATUS_INVALID_VALUE:
+            errLine = "CUBLAS_STATUS_INVALID_VALUE";
+            break;
+        case CUBLAS_STATUS_ARCH_MISMATCH:
+            errLine = "CUBLAS_STATUS_ARCH_MISMATCH";
+            break;
+        case CUBLAS_STATUS_MAPPING_ERROR:
+            errLine = "CUBLAS_STATUS_MAPPING_ERROR";
+            break;
+        case CUBLAS_STATUS_EXECUTION_FAILED:
+            errLine = "CUBLAS_STATUS_EXECUTION_FAILED";
+            break;
+        case CUBLAS_STATUS_INTERNAL_ERROR:
+            errLine = "CUBLAS_STATUS_INTERNAL_ERROR";
+            break;
+    }
+    if(errLine != "") {
+        cout << endl << __FILE__ << ", line " << __LINE__ << ": " << " (" << errLine << ")" << endl;
+        if (prev_line_cublas>0) cout << "Previous cuBLAS call:" << endl << prev_file_cublas << ", line " << prev_line_cublas << endl;
+        //exit(1);
+    }
+
+    prev_file_cublas = __FILE__;
+    prev_line_cublas = __LINE__;
+}

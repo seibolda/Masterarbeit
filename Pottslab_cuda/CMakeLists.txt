@@ -30,4 +30,5 @@ target_include_directories(Pottslab_cuda
 
 target_link_libraries(Pottslab_cuda
         ${OpenCV_LIBS}
+        ${CUDA_CUBLAS_LIBRARIES}
 )

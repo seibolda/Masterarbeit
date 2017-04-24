@@ -8,6 +8,7 @@
 #include <string>
 #include <sstream>
 #include <cstdint>
+#include "cublas_v2.h"
 
 
 
@@ -87,6 +88,7 @@ class Timer
 #define CUDA_CHECK cuda_check(__FILE__,__LINE__)
 void cuda_check(std::string file, int line);
 
+void CUBLAS_CHECK(cublasStatus_t error);
 
 
 #endif  // AUX_H

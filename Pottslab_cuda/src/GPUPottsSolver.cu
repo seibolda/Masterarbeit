@@ -5,6 +5,7 @@
 #include "CudaBuffer.h"
 #include "Image.h"
 #include "CudaKernels.cu"
+#include "cublas_v2.h"
 
 class GPUPottsSolver {
 private:
@@ -27,7 +28,12 @@ private:
     CudaBuffer<float> temp;
     CudaBuffer<float> weights;
     CudaBuffer<float> weightsPrime;
-    CudaBuffer<float> d_error;
+
+    CudaBuffer<uint32_t> arrJ;
+    CudaBuffer<float> arrP;
+    CudaBuffer<float> m;
+    CudaBuffer<float> s;
+    CudaBuffer<float> wPotts;
 
     dim3 block;
     dim3 grid;
@@ -36,7 +42,11 @@ private:
     dim3 blockVertical;
     dim3 gridVertical;
 
+    cublasHandle_t cublasHandle;
+
     float computeFNorm(float* inputImage);
+
+    float updateError();
 
 public:
     GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc) {
@@ -49,7 +59,7 @@ public:
         mu = 0.5;
         muStep = newMuStep;
         error = std::numeric_limits<float>::infinity();
-        stopTol = 0.0001;
+        stopTol = 0.00000000001;
         fNorm = computeFNorm(inputImage);
 
         d_inputImage.CreateBuffer(h*w*nc);
@@ -66,8 +76,17 @@ public:
         weights.SetBytewiseValue(0);
         weightsPrime.CreateBuffer(w*h);
         weightsPrime.SetBytewiseValue(0);
-        d_error.CreateBuffer(1);
-        d_error.SetBytewiseValue(0);
+
+        arrJ.CreateBuffer(h*w);
+        arrJ.SetBytewiseValue(0);
+        arrP.CreateBuffer(h*w);
+        arrP.SetBytewiseValue(0);
+        m.CreateBuffer((h+1)*(w+1)*nc);
+        m.SetBytewiseValue(0);
+        s.CreateBuffer((h+1)*(w+1));
+        s.SetBytewiseValue(0);
+        wPotts.CreateBuffer((h+1)*(w+1));
+        wPotts.SetBytewiseValue(0);
 
         block = dim3(32, 32, 1); // 32*32 = 1024 threads
         // ensure enough blocks to cover w * h elements (round up)
@@ -76,6 +95,8 @@ public:
         gridHorizontal = dim3(1, (h + blockHorizontal.y - 1) / blockHorizontal.y, 1);
         blockVertical = dim3(1024, 1, 1);
         gridVertical = dim3((w + blockVertical.x - 1) / blockVertical.x, 1, 1);
+
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
     }
 
     ~GPUPottsSolver() {
@@ -85,7 +106,15 @@ public:
         temp.DestroyBuffer();
         weights.DestroyBuffer();
         weightsPrime.DestroyBuffer();
-        d_error.DestroyBuffer();
+
+        arrP.DestroyBuffer();
+        arrJ.DestroyBuffer();
+        m.DestroyBuffer();
+        s.DestroyBuffer();
+        wPotts.DestroyBuffer();
+
+        CUBLAS_CHECK(cublasDestroy(cublasHandle));
+
     }
 
     void solvePottsProblem() {
@@ -111,25 +140,25 @@ public:
             CUDA_CHECK;
 
 
-            applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(), gammaPrime, w, h, nc);
+            applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+                    arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime, w, h, nc);
             CUDA_CHECK;
-            applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(), gammaPrime, w, h, nc);
+            applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+                    arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime, w, h, nc);
             CUDA_CHECK;
 
 
             updateLagrangeMultiplierKernel <<<grid,block>>> (u.GetDevicePtr(), v.GetDevicePtr(), lam.GetDevicePtr(),
                     temp.GetDevicePtr(), mu, w, h, nc);
             CUDA_CHECK;
-            updateErrorKernel <<<grid, block>>> (d_error.GetDevicePtr(), temp.GetDevicePtr(), w, h, nc);
-            CUDA_CHECK;
-            error = d_error.DownloadData()[0];
-            d_error.SetBytewiseValue(0);
+
+            error = updateError();
             printf("Iteration: %d error: %f\n", iteration, error);
             iteration++;
 
             mu = mu * muStep;
 
-            if(iteration > 50)
+            if(iteration > 5)
                 break;
         }
 
@@ -151,6 +180,12 @@ float GPUPottsSolver::computeFNorm(float* inputImage) {
         }
     }
     return fNorm;
+}
+
+float GPUPottsSolver::updateError() {
+    float errorCublas = 0;
+    CUBLAS_CHECK(cublasSnrm2(cublasHandle, h*w*nc, temp.GetDevicePtr(), 1, &errorCublas)) ;
+    return errorCublas*errorCublas;
 }
 
 #endif

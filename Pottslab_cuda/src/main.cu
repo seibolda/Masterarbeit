@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
     cout << "Duration: " << timer.get() * 1000 << "ms" << endl;
 
     inputImage.Show("Input Image", 100, 100);
-    outputImage.Show("Output Image", 500, 100);
+    outputImage.Show("Output Image", 100+width, 100);
     cv::waitKey(0);
     cvDestroyAllWindows();
 
