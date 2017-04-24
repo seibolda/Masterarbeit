@@ -21,7 +21,7 @@ while true
     [Q_L, p_L] = compute_correct_step_size(computed_shading, shading_energy_k, shading_grad_u_k, shading_grad_c_k, ...
         u_k_plus_1, u_k, c_k_plus_1, c_k, tau_u, tau_c, alpha);
 
-    fprintf('Interation: %d p_L: %d Q_L: %d tau_u: %d tau_c: %d\n', iteration_k, p_L, Q_L, tau_u, tau_c);
+    fprintf('Iteration: %d p_L: %d Q_L: %d tau_u: %d tau_c: %d\n', iteration_k, p_L, Q_L, tau_u, tau_c);
 
     if p_L <= Q_L
         break
