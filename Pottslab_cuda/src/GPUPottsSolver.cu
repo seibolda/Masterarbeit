@@ -56,10 +56,10 @@ public:
 
         gamma = newGamma;
         gammaPrime = 0;
-        mu = 0.5;
+        mu = gamma * 1e-2;
         muStep = newMuStep;
         error = std::numeric_limits<float>::infinity();
-        stopTol = 0.00000000001;
+        stopTol = 1e-10;
         fNorm = computeFNorm(inputImage);
 
         d_inputImage.CreateBuffer(h*w*nc);
@@ -132,16 +132,17 @@ public:
             updateWeightsPrimeKernel <<<grid, block>>> (weightsPrime.GetDevicePtr(), weights.GetDevicePtr(), w, h, mu);
             CUDA_CHECK;
 
+
             prepareHorizontalPottsProblems <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
                     weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam.GetDevicePtr(), mu, w, h, nc);
             CUDA_CHECK;
-            prepareVerticalPottsProblems <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
-                    weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam.GetDevicePtr(), mu, w, h, nc);
+            applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+                    arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime, w, h, nc);
             CUDA_CHECK;
 
 
-            applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                    arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime, w, h, nc);
+            prepareVerticalPottsProblems <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
+                    weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam.GetDevicePtr(), mu, w, h, nc);
             CUDA_CHECK;
             applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(),
                     arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime, w, h, nc);
@@ -152,13 +153,15 @@ public:
                     temp.GetDevicePtr(), mu, w, h, nc);
             CUDA_CHECK;
 
+
+
             error = updateError();
             printf("Iteration: %d error: %f\n", iteration, error);
             iteration++;
 
             mu = mu * muStep;
 
-            if(iteration > 5)
+            if(iteration > 25)
                 break;
         }
 

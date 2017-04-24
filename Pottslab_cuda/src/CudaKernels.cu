@@ -9,17 +9,6 @@
 
 #include <cstdint>
 
-/*__global__ void copyTestKernel(float* in, float* out, uint32_t w, uint32_t h, uint32_t nc) {
-    uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
-    uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
-    uint32_t c = threadIdx.z + blockDim.z * blockIdx.z;
-
-    if(x < w && y < h && c < nc) {
-        uint32_t index = x + w * y + w * h * c;
-        out[index] = in[index];
-    }
-}*/
-
 __global__ void printArrayKernel(float* array, uint32_t w, uint32_t h) {
     uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
     uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
@@ -51,9 +40,8 @@ __global__ void updateWeightsPrimeKernel(float* weightsPrime, float* weights, ui
     }
 }
 
-__device__ void prepareHorizontalAndVerticalPottsProblems(float* inputImage, float* targetImg, float* sourceImg,
-                                                          float* weights, float* weightsPrime, float* lam, float mu,
-                                                          uint32_t w, uint32_t h, uint32_t nc) {
+__global__ void prepareHorizontalPottsProblems(float* in, float* u, float* v, float* weights, float* weightsPrime,
+                                               float* lam, float mu, uint32_t w, uint32_t h, uint32_t nc) {
     uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
     uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
     uint32_t c = threadIdx.z + blockDim.z * blockIdx.z;
@@ -62,19 +50,24 @@ __device__ void prepareHorizontalAndVerticalPottsProblems(float* inputImage, flo
         uint32_t index = x + w * y + w * h * c;
         uint32_t weightsIndex = x + w * y;
 
-        targetImg[index] = (weights[weightsIndex] * inputImage[index] + sourceImg[index] * mu - lam[index]) / weightsPrime[weightsIndex];
+        u[index] = (weights[weightsIndex] * in[index] + v[index] * mu - lam[index]) / weightsPrime[weightsIndex];
 
     }
 }
 
-__global__ void prepareHorizontalPottsProblems(float* in, float* u, float* v, float* weights, float* weightsPrime,
-                                               float* lam, float mu, uint32_t w, uint32_t h, uint32_t nc) {
-    prepareHorizontalAndVerticalPottsProblems(in, u, v, weights, weightsPrime, lam, mu, w, h, nc);
-}
-
 __global__ void prepareVerticalPottsProblems(float* in, float* u, float* v, float* weights, float* weightsPrime,
                                                float* lam, float mu, uint32_t w, uint32_t h, uint32_t nc) {
-    prepareHorizontalAndVerticalPottsProblems(in, v, u, weights, weightsPrime, lam, mu, w, h, nc);
+    uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
+    uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
+    uint32_t c = threadIdx.z + blockDim.z * blockIdx.z;
+
+    if(x < w && y < h && c < nc) {
+        uint32_t index = x + w * y + w * h * c;
+        uint32_t weightsIndex = x + w * y;
+
+        v[index] = (weights[weightsIndex] * in[index] + u[index] * mu + lam[index]) / weightsPrime[weightsIndex];
+
+    }
 }
 
 __global__ void updateLagrangeMultiplierKernel(float* u, float* v, float* lam, float* temp, float mu, uint32_t w, uint32_t h, uint32_t nc) {
@@ -98,26 +91,20 @@ __device__ float normQuadKernel(float* array, uint32_t position, uint32_t colorO
 __device__ void doPottsStepKernel(float* arrayToUpdate, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* w,
                                   float gamma, uint32_t rowCol, uint32_t n, uint32_t widthOrHeight, uint32_t nc) {
     uint32_t y = rowCol;
-    uint32_t h = widthOrHeight;
+    uint32_t h = widthOrHeight + 1;
 
-//    uint32_t* arrJ = new uint32_t[n];
-//    float* arrP = new float[n];
     float d = 0;
     float p = 0;
     float dpg = 0;
-//    float* m = new float[(n + 1) * nc];
-//    float* s = new float[n + 1];
-//    float* w = new float[n + 1];
-//    float* mu = new float[nc];
     float mu1, mu2, mu3;
 
 
 
-    m[0] = 0;
+    /*m[0] = 0;
     m[n+1] = 0;
     m[2*(n+1)] = 0;
     s[0] = 0;
-    w[0] = 0;
+    w[0] = 0;*/
     float wTemp, mTemp, wDiffTemp;
     for(uint32_t j = 0; j < n; j++) {
         wTemp = weights[j + y*n];
@@ -170,14 +157,6 @@ __device__ void doPottsStepKernel(float* arrayToUpdate, float* weights, uint32_t
         if (r < 1) break;
         l = arrJ[r - 1 + y*n];
     }
-
-
-//    delete[] arrJ;
-//    delete[] arrP;
-//    delete[] m;
-//    delete[] s;
-//    delete[] w;
-//    delete[] mu;
 }
 
 __global__ void applyHorizontalPottsSolverKernel(float* u, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* wPotts,
