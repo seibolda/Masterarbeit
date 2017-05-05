@@ -6,6 +6,7 @@
 #include "Image.h"
 #include "CudaKernels.cu"
 #include "cublas_v2.h"
+#include <cstdlib>
 
 class GPUPottsSolver {
 private:
@@ -139,6 +140,11 @@ public:
             applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(),
                     arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime, w, h, nc);
             CUDA_CHECK;
+            arrJ.SetBytewiseValue(0);
+            arrP.SetBytewiseValue(0);
+            m.SetBytewiseValue(0);
+            s.SetBytewiseValue(0);
+            wPotts.SetBytewiseValue(0);
 
 
             prepareVerticalPottsProblems <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
@@ -161,7 +167,7 @@ public:
 
             mu = mu * muStep;
 
-            if(iteration > 25)
+            if(iteration > 100)
                 break;
         }
 
@@ -170,6 +176,8 @@ public:
     void downloadOuputImage(ImageRGB outputImage) {
         outputImage.SetRawData(u.DownloadData());
     }
+
+    void doPottsOnCPU();
 
 };
 
@@ -189,6 +197,55 @@ float GPUPottsSolver::updateError() {
     float errorCublas = 0;
     CUBLAS_CHECK(cublasSnrm2(cublasHandle, h*w*nc, temp.GetDevicePtr(), 1, &errorCublas)) ;
     return errorCublas*errorCublas;
+}
+
+void GPUPottsSolver::doPottsOnCPU() {
+    uint32_t problemSize = 255;
+    uint32_t height1 = 1;
+    uint32_t numCh = 1;
+    float* weights1 = new float[problemSize*height1];
+    float* m1 = new float[(problemSize+1)*(height1+1)*numCh];
+    float* s1 = new float[(problemSize+1)*(height1+1)];
+    float* w1 = new float[(problemSize+1)*(height1+1)];
+    float* arrP1 = new float[problemSize];
+    uint32_t* arrJ1 = new uint32_t[problemSize];
+
+    float* testData = new float[255];
+    int* result = new int[255];
+
+    for(uint32_t i = 0; i < problemSize*numCh; ++i) {
+        testData[i] = i/255.0;//(rand() % 255) / 255.0;
+        if(i < problemSize)
+            weights1[i] = 1 + mu;
+    }
+
+    for(uint32_t i = 0; i < (problemSize+1)*(height1+1)*numCh; i++) {
+        m1[i] = 0;
+    }
+    w1[0] = 0;
+    s1[0] = 0;
+
+    for(uint32_t i = 0; i < 1; ++i) {
+        doPottsStep(testData, weights1, arrJ1, arrP1, m1, s1, w1, gamma*2, 0, problemSize, height1, numCh);
+    }
+
+    for(uint32_t i = 0; i < 256; ++i) {
+        result[i] = floor(testData[i] * 255);
+        if(i >= problemSize*numCh)
+            result[i] = 0;
+        printf("Pos: %d data: %f res: %d\n", i, testData[i], result[i]);
+    }
+
+    showHistogram256("testData", result, 10,10);
+
+    delete[] weights1;
+    delete[] m1;
+    delete[] w1;
+    delete[] s1;
+    delete[] arrJ1;
+    delete[] arrP1;
+    delete[] testData;
+    delete[] result;
 }
 
 #endif

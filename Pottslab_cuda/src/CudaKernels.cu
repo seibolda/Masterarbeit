@@ -82,16 +82,18 @@ __global__ void updateLagrangeMultiplierKernel(float* u, float* v, float* lam, f
     }
 }
 
-__device__ float normQuadKernel(float* array, uint32_t position, uint32_t colorOffset) {
-    return (array[position]*array[position]
-            + array[position + colorOffset]*array[position + colorOffset]
-            + array[position + 2*colorOffset]*array[position + 2*colorOffset]);
+__host__ __device__ float normQuad(float* array, uint32_t position, uint32_t nc, uint32_t colorOffset) {
+    float result = 0;
+    for(uint32_t c = 0; c < nc; c++) {
+        result += array[position + c*colorOffset]*array[position + c*colorOffset];
+    }
+    return result;
 }
 
-__device__ void doPottsStepKernel(float* arrayToUpdate, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* w,
+__host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* w,
                                   float gamma, uint32_t rowCol, uint32_t n, uint32_t widthOrHeight, uint32_t nc) {
     uint32_t y = rowCol;
-    uint32_t h = widthOrHeight + 1;
+    uint32_t h = widthOrHeight;
 
     float d = 0;
     float p = 0;
@@ -100,34 +102,30 @@ __device__ void doPottsStepKernel(float* arrayToUpdate, float* weights, uint32_t
 
 
 
-    /*m[0] = 0;
-    m[n+1] = 0;
-    m[2*(n+1)] = 0;
-    s[0] = 0;
-    w[0] = 0;*/
     float wTemp, mTemp, wDiffTemp;
     for(uint32_t j = 0; j < n; j++) {
         wTemp = weights[j + y*n];
-        m[j + 1 + y*(n+1)] = arrayToUpdate[j + y*n] * wTemp + m[j + y*(n+1)];
-        m[j + 1 + y*(n+1) + (n+1)*h] = arrayToUpdate[j + y*n + n*h] * wTemp + m[j + y*(n+1) + (n+1)*h];
-        m[j + 1 + y*(n+1) + 2*(n+1)*h] = arrayToUpdate[j + y*n + 2*n*h] * wTemp + m[j + y*(n+1) + 2*(n+1)*h];
-        s[j + 1 + y*(n+1)] = normQuadKernel(arrayToUpdate, j+y*n, n*h) * wTemp + s[j + y*(n+1)];
+        for(uint32_t c = 0; c < nc; c++) {
+            m[j + 1 + y*(n+1) + c*(n+1)*(h+1)] = arrayToUpdate[j + y*n + c*n*h] * wTemp + m[j + y*(n+1) + c*(n+1)*(h+1)];
+        }
+        float nQ = normQuad(arrayToUpdate, j+y*n, nc, n*h);
+        s[j + 1 + y*(n+1)] = nQ * wTemp + s[j + y*(n+1)];
         w[j + 1 + y*(n+1)] = w[j + y*(n+1)] + wTemp;
     }
 
     for(uint32_t r = 1; r <= n; r++) {
-        arrP[r - 1 + y*n] = s[r + y*(n+1)] - normQuadKernel(m, r + y*(n+1), (n+1)*h) / w[r + y*(n+1)];
+        arrP[r - 1 + y*n] = s[r + y*(n+1)] - (normQuad(m, r + y*(n+1), nc, (n+1)*(h+1)) / w[r + y*(n+1)]);;
         arrJ[r - 1 + y*n] = 0;
         for(uint32_t l = r; l >= 2; l--) {
             mTemp = 0;
             for(uint32_t k = 0; k < nc; k++) {
-                mTemp = mTemp + (m[r + y*(n+1) + k*(n+1)*h]*m[l - 1 + y*(n+1) + k*(n+1)*h]) * (m[r + y*(n+1) + k*(n+1)*h]*m[l - 1 + y*(n+1) + k*(n+1)*h]);
+                mTemp = mTemp + (m[r + y*(n+1) + k*(n+1)*(h+1)]-m[l - 1 + y*(n+1) + k*(n+1)*(h+1)]) * (m[r + y*(n+1) + k*(n+1)*(h+1)]-m[l - 1 + y*(n+1) + k*(n+1)*(h+1)]);
             }
             wDiffTemp = w[r + y*(n+1)] - w[l - 1 + y*(n+1)];
             if(0 == wDiffTemp) {
                 d = 0;
             } else {
-                d = s[r + y*(n+1)] - s[l - 1 + y*(n+1)] - mTemp / wDiffTemp;
+                d = s[r + y*(n+1)] - s[l - 1 + y*(n+1)] - (mTemp / wDiffTemp);
             }
             dpg = d + gamma;
             if(dpg > arrP[r-1 + y*n]) {
@@ -144,14 +142,19 @@ __device__ void doPottsStepKernel(float* arrayToUpdate, float* weights, uint32_t
     uint32_t r = n;
     uint32_t l = arrJ[r - 1 + y*n];
     while(r > 0) {
-        mu1 = (m[r + y*(n+1)] - m[l + y*(n+1)]) / (w[r + y*(n+1)] - w[l + y*(n+1)]);
-        mu2 = (m[r + y*(n+1) + (n+1)*h] - m[l + y*(n+1) + (n+1)*h]) / (w[r + y*(n+1)] - w[l + y*(n+1)]);
-        mu3 = (m[r + y*(n+1) + 2*(n+1)*h] - m[l + y*(n+1) + 2*(n+1)*h]) / (w[r + y*(n+1)] - w[l + y*(n+1)]);
+        wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
+        mu1 = (m[r + y*(n+1)] - m[l + y*(n+1)]) / wTemp;
+        if(nc > 1) {
+            mu2 = (m[r + y*(n+1) + (n+1)*(h+1)] - m[l + y*(n+1) + (n+1)*(h+1)]) / wTemp;
+            mu3 = (m[r + y*(n+1) + 2*(n+1)*(h+1)] - m[l + y*(n+1) + 2*(n+1)*(h+1)]) / wTemp;
+        }
 
         for(uint32_t j = l; j < r; j++) {
             arrayToUpdate[j + y*n] = mu1;
-            arrayToUpdate[j + y*n + n*h] = mu2;
-            arrayToUpdate[j + y*n + 2*n*h] = mu3;
+            if(nc > 1) {
+                arrayToUpdate[j + y * n + n * h] = mu2;
+                arrayToUpdate[j + y * n + 2 * n * h] = mu3;
+            }
         }
         r = l;
         if (r < 1) break;
@@ -164,7 +167,7 @@ __global__ void applyHorizontalPottsSolverKernel(float* u, float* weights, uint3
     uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
 
     if(y < h) {
-        doPottsStepKernel(u, weights, arrJ, arrP, m, s, wPotts, gamma, y, w, h, nc);
+        doPottsStep(u, weights, arrJ, arrP, m, s, wPotts, gamma, y, w, h, nc);
     }
 }
 
@@ -173,7 +176,7 @@ __global__ void applyVerticalPottsSolverKernel(float* v, float* weights, uint32_
     uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
 
     if(x < w) {
-        doPottsStepKernel(v, weights, arrJ, arrP, m, s, wPotts, gamma, x, h, w, nc);
+        doPottsStep(v, weights, arrJ, arrP, m, s, wPotts, gamma, x, h, w, nc);
     }
 }
 
