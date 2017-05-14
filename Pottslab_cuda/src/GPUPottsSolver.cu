@@ -43,6 +43,7 @@ private:
     dim3 gridHorizontal;
     dim3 blockVertical;
     dim3 gridVertical;
+    dim3 gridSwap;
 
     cublasHandle_t cublasHandle;
 
@@ -98,7 +99,9 @@ public:
         blockHorizontal = dim3(1, 1024, 1);
         gridHorizontal = dim3(1, (h + blockHorizontal.y - 1) / blockHorizontal.y, 1);
         blockVertical = dim3(1024, 1, 1);
-        gridVertical = dim3((w + blockVertical.x - 1) / blockVertical.x, 1, 1);
+        gridVertical = dim3((h + blockVertical.x - 1) / blockVertical.x, 1, 1);//dim3((w + blockVertical.x - 1) / blockVertical.x, 1, 1);
+        uint32_t largerDimension = max(h, w);
+        gridSwap = dim3((largerDimension + block.x - 1), (largerDimension + block.y - 1), nc);
 
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
     }
@@ -155,17 +158,17 @@ public:
             prepareVerticalPottsProblems <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
                     weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam.GetDevicePtr(), mu, w, h, nc);
             CUDA_CHECK;
-            swapImageCWKernel <<<grid, block>>> (v.GetDevicePtr(), tempV.GetDevicePtr(), w, h, nc);
+            swapImageCWKernel <<<gridSwap, block>>> (v.GetDevicePtr(), tempV.GetDevicePtr(), w, h, nc);
             CUDA_CHECK;
             applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (tempV.GetDevicePtr(), weightsPrime.GetDevicePtr(),
                     arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime, w, h, nc);
             CUDA_CHECK;
-            swapImageCCWKernel <<<grid, block>>> (tempV.GetDevicePtr(), v.GetDevicePtr(), h, w, nc);
+            swapImageCCWKernel <<<gridSwap, block>>> (tempV.GetDevicePtr(), v.GetDevicePtr(), h, w, nc);
             CUDA_CHECK;
 
-            testImage.SetRawData(v.DownloadData());
-            testImage.Show("Test Image", 100+w, 100);
-            cv::waitKey(0);
+//            testImage.SetRawData(v.DownloadData());
+//            testImage.Show("Test Image", 100+w, 100);
+//            cv::waitKey(0);
 
 
             updateLagrangeMultiplierKernel <<<grid,block>>> (u.GetDevicePtr(), v.GetDevicePtr(), lam.GetDevicePtr(),
