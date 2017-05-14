@@ -25,6 +25,7 @@ private:
     CudaBuffer<float> d_inputImage;
     CudaBuffer<float> u;
     CudaBuffer<float> v;
+    CudaBuffer<float> tempV;
     CudaBuffer<float> lam;
     CudaBuffer<float> temp;
     CudaBuffer<float> weights;
@@ -69,6 +70,8 @@ public:
         u.SetBytewiseValue(0);
         v.CreateBuffer(h*w*nc);
         v.UploadData(inputImage);
+        tempV.CreateBuffer(h*w*nc);
+        tempV.SetBytewiseValue(0);
         lam.CreateBuffer(h*w*nc);
         lam.SetBytewiseValue(0);
         temp.CreateBuffer(h*w*nc);
@@ -124,6 +127,8 @@ public:
         }
         uint32_t iteration = 0;
 
+        ImageRGB testImage(w, h);
+
         setWeightsKernel <<<grid, block>>> (weights.GetDevicePtr(), w, h);
 
         gammaPrime = 2 * gamma;
@@ -150,9 +155,17 @@ public:
             prepareVerticalPottsProblems <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
                     weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam.GetDevicePtr(), mu, w, h, nc);
             CUDA_CHECK;
-            applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+            swapImageCWKernel <<<grid, block>>> (v.GetDevicePtr(), tempV.GetDevicePtr(), w, h, nc);
+            CUDA_CHECK;
+            applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (tempV.GetDevicePtr(), weightsPrime.GetDevicePtr(),
                     arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime, w, h, nc);
             CUDA_CHECK;
+            swapImageCCWKernel <<<grid, block>>> (tempV.GetDevicePtr(), v.GetDevicePtr(), h, w, nc);
+            CUDA_CHECK;
+
+            testImage.SetRawData(v.DownloadData());
+            testImage.Show("Test Image", 100+w, 100);
+            cv::waitKey(0);
 
 
             updateLagrangeMultiplierKernel <<<grid,block>>> (u.GetDevicePtr(), v.GetDevicePtr(), lam.GetDevicePtr(),
@@ -174,10 +187,23 @@ public:
     }
 
     void downloadOuputImage(ImageRGB outputImage) {
-        outputImage.SetRawData(u.DownloadData());
+        outputImage.SetRawData(v.DownloadData());
     }
 
     void doPottsOnCPU();
+
+    void swapTest() {
+        ImageRGB rotatedImage(h, w);
+
+        swapImageCCWKernel <<<grid, block>>> (v.GetDevicePtr(), tempV.GetDevicePtr(), w, h, nc);
+        CUDA_CHECK;
+        swapImageCWKernel <<<grid, block>>> (tempV.GetDevicePtr(), v.GetDevicePtr(), h, w, nc);
+        CUDA_CHECK;
+
+        rotatedImage.SetRawData(tempV.DownloadData());
+        rotatedImage.Show("Rotated Image", 100+w, 100);
+        cv::waitKey(0);
+    }
 
 };
 
@@ -186,7 +212,7 @@ float GPUPottsSolver::computeFNorm(float* inputImage) {
     for(uint32_t x = 0; x < w; x++) {
         for(uint32_t y = 0; y < h; y++) {
             for(uint32_t c = 0; c < nc; c++) {
-                fNorm += pow(inputImage[x + y * w + c * w * h], 2);
+                fNorm += pow(inputImage[x + y*w + c*w*h], 2);
             }
         }
     }
@@ -204,20 +230,73 @@ void GPUPottsSolver::doPottsOnCPU() {
     uint32_t height1 = 1;
     uint32_t numCh = 1;
     float* weights1 = new float[problemSize*height1];
+    float* weightsPrime1 = new float[problemSize*height1];
     float* m1 = new float[(problemSize+1)*(height1+1)*numCh];
     float* s1 = new float[(problemSize+1)*(height1+1)];
     float* w1 = new float[(problemSize+1)*(height1+1)];
-    float* arrP1 = new float[problemSize];
-    uint32_t* arrJ1 = new uint32_t[problemSize];
+    float* arrP1 = new float[problemSize*height1];
+    uint32_t* arrJ1 = new uint32_t[problemSize*height1];
 
     float* testData = new float[255];
+    int* inputToVisualize = new int[255];
     int* result = new int[255];
 
-    for(uint32_t i = 0; i < problemSize*numCh; ++i) {
-        testData[i] = i/255.0;//(rand() % 255) / 255.0;
-        if(i < problemSize)
-            weights1[i] = 1 + mu;
+    float* u = new float[problemSize*height1*numCh];
+    float* v = new float[problemSize*height1*numCh];
+    float* lam = new float[problemSize*height1*numCh];
+    float* temp = new float[problemSize*height1*numCh];
+
+    for(uint32_t x = 0; x < problemSize; x++) {
+        for(uint32_t y = 0; y < height1; y++) {
+
+            uint32_t weightsIndex = x + problemSize*y;
+            weights1[weightsIndex] = 1;
+            weightsPrime1[weightsIndex] = 0;
+            arrJ1[weightsIndex] = 0;
+            arrP1[weightsIndex] = 0;
+
+            for(uint32_t c = 0; c < numCh; c++) {
+                uint32_t index = x + problemSize*y + c*height1*problemSize;
+                u[index] = 0;
+                v[index] = 0;
+                lam[index] = 0;
+                temp[index] = 0;
+            }
+        }
     }
+    for(uint32_t i = 0; i < (problemSize+1)*(height1+1); i++) {
+
+        s1[i] = 0;
+        w1[i] = 0;
+
+        for(uint32_t c = 0; c < numCh; c++) {
+            m1[i*c] = 0;
+        }
+    }
+    for(uint32_t i = 0; i < problemSize*height1*numCh; ++i) {
+        testData[i] = i/255.0;//(rand() % 255) / 255.0;
+        inputToVisualize[i] = floor(testData[i] * 255);
+
+    }
+
+
+
+    // prepare horizontal
+    for(uint32_t x = 0; x < problemSize; x++) {
+        for(uint32_t y = 0; y < height1; y++) {
+            for(uint32_t c = 0; c < numCh; c++) {
+                uint32_t weightsIndex = x + problemSize*y;
+                uint32_t index = x + problemSize*y + c*problemSize*height1;
+                u[index] = (testData[index] * weights1[weightsIndex] + v[index] * mu - lam[index]) / weightsPrime1[weightsIndex];
+                v[index] = (testData[index] * weights1[weightsIndex] + u[index] * mu + lam[index]) / weightsPrime1[weightsIndex];
+            }
+        }
+    }
+
+
+
+
+    /*showHistogram256("testData", inputToVisualize, 10,10);
 
     for(uint32_t i = 0; i < (problemSize+1)*(height1+1)*numCh; i++) {
         m1[i] = 0;
@@ -236,16 +315,23 @@ void GPUPottsSolver::doPottsOnCPU() {
         printf("Pos: %d data: %f res: %d\n", i, testData[i], result[i]);
     }
 
-    showHistogram256("testData", result, 10,10);
+    showHistogram256("result", result, 10,200);*/
 
     delete[] weights1;
+    delete[] weightsPrime1;
     delete[] m1;
     delete[] w1;
     delete[] s1;
     delete[] arrJ1;
     delete[] arrP1;
     delete[] testData;
+    delete[] inputToVisualize;
     delete[] result;
+
+    delete[] u;
+    delete[] v;
+    delete[] lam;
+    delete[] temp;
 }
 
 #endif

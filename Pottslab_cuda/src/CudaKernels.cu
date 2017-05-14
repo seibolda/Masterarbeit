@@ -180,5 +180,25 @@ __global__ void applyVerticalPottsSolverKernel(float* v, float* weights, uint32_
     }
 }
 
+__global__ void swapImageCCWKernel(float* in, float* out, uint32_t w, uint32_t h, uint32_t nc) {
+    uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
+    uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
+    uint32_t c = threadIdx.z + blockDim.z * blockIdx.z;
+
+    if(x < w && y < h && c < nc) {
+        out[y + (w-x-1)*h + c*w*h] = in[x + y*w + c*w*h];
+    }
+}
+
+__global__ void swapImageCWKernel(float* in, float* out, uint32_t w, uint32_t h, uint32_t nc) {
+    uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
+    uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
+    uint32_t c = threadIdx.z + blockDim.z * blockIdx.z;
+
+    if(x < w && y < h && c < nc) {
+        out[(h-y-1) + x*h + c*w*h] = in[x + y*w + c*w*h];
+    }
+}
+
 
 #endif

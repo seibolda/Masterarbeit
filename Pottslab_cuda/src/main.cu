@@ -39,20 +39,19 @@ int main(int argc, char **argv) {
 
     GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, 2, width, height, numberChannels);
 
-/*
     timer.start();
     gpuPottsSolver.solvePottsProblem();
     timer.end();
-*/
-    gpuPottsSolver.doPottsOnCPU();
+//    gpuPottsSolver.doPottsOnCPU();
+//    gpuPottsSolver.swapTest();
 
-//    gpuPottsSolver.downloadOuputImage(outputImage);
+    gpuPottsSolver.downloadOuputImage(outputImage);
 
 
     cout << "Duration: " << timer.get() * 1000 << "ms" << endl;
 
-//    inputImage.Show("Input Image", 100, 100);
-//    outputImage.Show("Output Image", 100+width, 100);
+    inputImage.Show("Input Image", 100, 100);
+    outputImage.Show("Output Image", 100+width, 100);
     cv::waitKey(0);
     cvDestroyAllWindows();
 
