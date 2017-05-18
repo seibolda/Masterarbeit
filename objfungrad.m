@@ -1,4 +1,4 @@
-function [f, gradf] = objfungrad(x, grad, sil, lambda, Vol, u_tilde_k_plus_1, tau_u, smoothing_type)
+function [f, gradf] = objfungrad(x, grad, sil, lambda, beta, Vol, u_tilde_k_plus_1, tau_u, smoothing_type)
 
 gx = grad * x;
 N = size(x,1);
@@ -19,9 +19,9 @@ if nargout  > 1
     gradf = 2 * lambda * (sum(sil.*x) - Vol) ...
         + (x - u_tilde_k_plus_1)/tau_u;
     if strcmp(smoothing_type, 'gradient')
-        gradf = gradf + grad' * ([(gx(1:N) ./ norm_tmp); (gx(N+1:end) ./ norm_tmp)]);
+        gradf = gradf + beta * (grad' * ([(gx(1:N) ./ norm_tmp); (gx(N+1:end) ./ norm_tmp)]));
     else
-        gradf = gradf + (grad'*(grad*(grad'*(grad*x))));
+        gradf = gradf + beta * (grad'*(grad*(grad'*(grad*x))));
     end;
     gradf = sil .* gradf;
 end

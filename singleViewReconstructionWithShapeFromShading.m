@@ -1,9 +1,5 @@
 function [saveImg] = singleViewReconstructionWithShapeFromShading(imgOrg, silhouetteOrg, reflectanceOrg, shading_MITOrg, ...
-        minimal_surface_weight, lambda, Vol, tau_u, tau_c, gamma, alpha, verbose)
-
-    lambda = lambda/minimal_surface_weight;
-    gamma = gamma/minimal_surface_weight;
-    alpha = alpha/minimal_surface_weight;
+        lambda, beta, Vol, tau_u, tau_c, gamma, alpha, delta, verbose)
     
     %images
     scale = 1;
@@ -52,7 +48,7 @@ function [saveImg] = singleViewReconstructionWithShapeFromShading(imgOrg, silhou
 
     for resizing_step = 1:1
         % surface
-        u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, Vol, u_tilde_k_plus_1, tau_u, smoothing_type);
+        u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, beta, Vol, u_tilde_k_plus_1, tau_u, smoothing_type);
 
         if verbose == 1
             figure(1);
@@ -98,11 +94,11 @@ function [saveImg] = singleViewReconstructionWithShapeFromShading(imgOrg, silhou
 
         for iteration_k = 0:10^(3-resizing_step)
 
-            [shading_energy_k, shading_grad_u_k, shading_grad_c_k, shading_k] = compute_shading(u_k_plus_1, c_k_plus_1, grad, div_x, div_y, silhouette, img, l, alpha);
+            [shading_energy_k, shading_grad_u_k, shading_grad_c_k, shading_k] = compute_shading(u_k_plus_1, c_k_plus_1, grad, div_x, div_y, silhouette, img, l, alpha, delta);
             u_k = u_k_plus_1;
             c_k = c_k_plus_1;
 
-            [u_k_plus_1, c_k_plus_1, u_tilde_k_plus_1, c_tilde_k_plus_1, tau_u, tau_c] = minimizing_with_line_search(tau_u, tau_c, u_k, c_k, shading_energy_k, shading_grad_u_k, shading_grad_c_k, silhouette, lambda, Vol, smoothing_type, gamma, alpha, l, grad, div_x, div_y, img, eta, iteration_k);
+            [u_k_plus_1, c_k_plus_1, u_tilde_k_plus_1, c_tilde_k_plus_1, tau_u, tau_c] = minimizing_with_line_search(tau_u, tau_c, u_k, c_k, shading_energy_k, shading_grad_u_k, shading_grad_c_k, silhouette, lambda, beta, Vol, smoothing_type, gamma, alpha, l, grad, div_x, div_y, img, eta, iteration_k, delta);
 
             if verbose == 1
                 figure(3)

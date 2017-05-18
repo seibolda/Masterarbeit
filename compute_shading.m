@@ -1,4 +1,4 @@
-function [shading_energy, shading_grad_u, shading_grad_c, shading] = compute_shading(u_k_plus_1, c_k_plus_1, grad, div_x, div_y, silhouette, img, l, alpha)
+function [shading_energy, shading_grad_u, shading_grad_c, shading] = compute_shading(u_k_plus_1, c_k_plus_1, grad, div_x, div_y, silhouette, img, l, alpha, delta)
 
 [m,n] = size(silhouette);
 
@@ -15,7 +15,7 @@ shading = l_dot_p./grad_norm;
 brackets = (img - (l_dot_p./grad_norm) .* c_k_plus_1);
 brackets = brackets.*silhouette;
 
-shading_grad_c = -alpha * (brackets.*(l_dot_p./ grad_norm));
+shading_grad_c = -alpha * delta * (brackets.*(l_dot_p./ grad_norm));
 
 shading_energy = brackets;
 [~,~,dim] = size(brackets);
@@ -24,6 +24,6 @@ if dim > 1
     k = k(:,:,1) + k(:,:,2) + k(:,:,3);
 end
 
-shading_grad_u = alpha * (-div_x*(brackets(:) .* (-l(1) .* k(:))) - div_y*(brackets(:) .* (-l(2) .* k(:))));
+shading_grad_u = alpha * delta * (-div_x*(brackets(:) .* (-l(1) .* k(:))) - div_y*(brackets(:) .* (-l(2) .* k(:))));
 
 end

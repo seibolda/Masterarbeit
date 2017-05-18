@@ -17,39 +17,43 @@ imgOrg = double(imread('data/images/archutah_med.png')) / 255;
 silhouetteOrg = double(rgb2gray(imread('data/silhouettes/archutah_sil_med.png'))) > 1;
 
 % surface
-minimal_surface_weight = 10;
-lambda = 1/minimal_surface_weight;
-Vol = 100000;
+beta = 1;
+lambda = 10;
+Vol = 50000;
 tau_u = 10;
 % for pottslab
 tau_c = 1;
-gamma = 1/minimal_surface_weight;
+gamma = 0.1;
 % rest
-alpha = 1/minimal_surface_weight;
+alpha = 5.95;
+delta = 1;
 
-verbose = 0;
+verbose = 1;
 
-for minimal_surface_weight = 0.01:0.33:10
-    for lambda = 0.01:0.33:10
-        for gamma = 0.01:0.33:10
-            for alpha = 0.01:0.33:10
+%for beta = 0.01:0.33:10
+%    for lambda = 0.01:0.33:10
+%        for gamma = 0.01:0.33:10
+%            for alpha = 0.01:0.33:10
+%               for delta = 0.01:033:10
 
-                result = singleViewReconstructionWithShapeFromShading(imgOrg, silhouetteOrg, reflectanceOrg, shading_MITOrg, minimal_surface_weight, lambda, Vol, tau_u, tau_c, gamma, alpha, verbose);
+                    result = singleViewReconstructionWithShapeFromShading(imgOrg, silhouetteOrg, reflectanceOrg, shading_MITOrg, lambda, beta, Vol, tau_u, tau_c, gamma, alpha, delta, verbose);
 
-                result = imresize(result.cdata, [600 800]);
-                imwrite(result, strcat('data/results/','u_k_',...
-                    'lambda_',num2str(lambda),...
-                    '_gamma_',num2str(gamma),...
-                    '_alpha_',num2str(alpha),...
-                    '_minSurfWeight_',num2str(minimal_surface_weight),...
-                    '.png'), 'png');
+                    result = imresize(result.cdata, [600 800]);
+                    imwrite(result, strcat('data/results/','u_k_',...
+                        'lambda_',num2str(lambda),...
+                        '_gamma_',num2str(gamma),...
+                        '_alpha_',num2str(alpha),...
+                        '_beta_',num2str(beta),...
+                        '_delta_',num2str(delta),...
+                        '.png'), 'png');
 
-                close all;
+                    close all;
 
-            end
-        end
-    end
-end
+%               end
+%            end
+%        end
+%    end
+%end
 
 
 

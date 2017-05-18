@@ -1,6 +1,6 @@
 function [u_k_plus_1, c_k_plus_1,  u_tilde_k_plus_1, c_tilde_k_plus_1, tau_u, tau_c] = minimizing_with_line_search(tau_u, tau_c, u_k,...
-    c_k, shading_energy_k, shading_grad_u_k, shading_grad_c_k, silhouette, lambda, Vol, smoothing_type, gamma, alpha, l, grad,...
-    div_x, div_y, img, eta, iteration_k)
+    c_k, shading_energy_k, shading_grad_u_k, shading_grad_c_k, silhouette, lambda, beta, Vol, smoothing_type, gamma, alpha, l, grad,...
+    div_x, div_y, img, eta, iteration_k, delta)
 
 while true
 
@@ -9,13 +9,13 @@ while true
     u_tilde_k_plus_1 = u_k - shading_grad_u_k.*tau_u; 
 
     % Min Surface
-    u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, Vol, u_tilde_k_plus_1, tau_u, smoothing_type);
+    u_k_plus_1 = solve_min_surface(grad, silhouette(:), lambda, beta, Vol, u_tilde_k_plus_1, tau_u, smoothing_type);
 
     % Potts
     c_k_plus_1 = solve_potts_model(c_tilde_k_plus_1, tau_c, gamma);
 
     % shading
-    [computed_shading, ~, ~, ~] = compute_shading(u_k_plus_1, c_k_plus_1, grad, div_x, div_y, silhouette, img, l, alpha);
+    [computed_shading, ~, ~, ~] = compute_shading(u_k_plus_1, c_k_plus_1, grad, div_x, div_y, silhouette, img, l, alpha, delta);
 
     % check if step size tau_x is good
     [Q_L, p_L] = compute_correct_step_size(computed_shading, shading_energy_k, shading_grad_u_k, shading_grad_c_k, ...
