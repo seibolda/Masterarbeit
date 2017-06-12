@@ -2,7 +2,8 @@
 #include <opencv2/opencv.hpp>
 #include "Image.h"
 
-#include "GPUPottsSolver.cu"
+#include "GPUPottsSolver.h"
+#include "GPUPottsSolverImpl.cu"
 
 using namespace std;
 
@@ -40,7 +41,7 @@ int main(int argc, char **argv) {
     GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, 2, width, height, numberChannels);
 
     timer.start();
-    gpuPottsSolver.solvePottsProblem();
+    gpuPottsSolver.solvePottsProblem4ADMM();
     timer.end();
 //    gpuPottsSolver.doPottsOnCPU();
 //    gpuPottsSolver.swapTest();

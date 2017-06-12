@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 set(CUDA_NVCC_FLAGS
     ${CUDA_NVCC_FLAGS};
-    --use_fast_math --compiler-options -Wall -std=c++11 -Wno-deprecated-gpu-targets -lopencv_highgui -lopencv_core
+    --use_fast_math --compiler-options -Wall -std=c++11 -Wno-deprecated-gpu-targets -Xcompiler -fPIC -lopencv_highgui -lopencv_core
 )
 
 set(SOURCE_FILES

@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-__global__ void printArrayKernel(float* array, uint32_t w, uint32_t h) {
+/*__global__ void printArrayKernel(float* array, uint32_t w, uint32_t h) {
     uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
     uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
 
@@ -18,7 +18,7 @@ __global__ void printArrayKernel(float* array, uint32_t w, uint32_t h) {
         if(0 != array[index])
             printf("Index: %d, Value: %f\n", index, array[index]);
     }
-}
+}*/
 
 __global__ void setWeightsKernel(float* weights, uint32_t w, uint32_t h) {
     uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
@@ -30,13 +30,13 @@ __global__ void setWeightsKernel(float* weights, uint32_t w, uint32_t h) {
     }
 }
 
-__global__ void updateWeightsPrimeKernel(float* weightsPrime, float* weights, uint32_t w, uint32_t h, float mu) {
+__global__ void updateWeightsPrimeKernel(float* weightsPrime, float* weights, uint32_t w, uint32_t h, float mu, float factor) {
     uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
     uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
 
     if(x < w && y < h) {
         uint32_t index = x + w * y;
-        weightsPrime[index] = weights[index] + mu;
+        weightsPrime[index] = weights[index] + (factor * mu);
     }
 }
 

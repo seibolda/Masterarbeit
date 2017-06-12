@@ -1,9 +1,12 @@
+
 close all;
 clear;
 
 addpath(genpath('minFunc_2012'));
 addpath(genpath('Pottslab0.42'));
 setPLJavaPath(true);
+
+feval('mex -largeArrayDims main_mex.cpp GPUPottsSolverImpl.o helper.o CudaBuffer.o -I"/usr/local/cuda-7.5/targets/x86_64-linux/include/" -L"/usr/local/cuda/lib64/" -lcudart -lcublas')
 
 % load data
 
@@ -17,7 +20,7 @@ imgOrg = double(imread('data/images/archutah_med.png')) / 255;
 silhouetteOrg = double(rgb2gray(imread('data/silhouettes/archutah_sil_med.png'))) > 1;
 
 % surface
-beta = 1;
+beta = 10;
 lambda = 10;
 Vol = 50000;
 tau_u = 10;
@@ -25,7 +28,7 @@ tau_u = 10;
 tau_c = 1;
 gamma = 0.1;
 % rest
-alpha = 5.95;
+alpha = 1;
 delta = 1;
 
 verbose = 1;
