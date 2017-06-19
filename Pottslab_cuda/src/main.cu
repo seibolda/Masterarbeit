@@ -3,7 +3,8 @@
 #include "Image.h"
 
 #include "GPUPottsSolver.h"
-#include "GPUPottsSolverImpl.cu"
+#include "GPUPottsSolver.cu"
+
 
 using namespace std;
 

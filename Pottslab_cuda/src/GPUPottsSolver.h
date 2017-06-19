@@ -5,6 +5,7 @@
 #include "CudaBuffer.h"
 #include "Image.h"
 #include "cublas_v2.h"
+#include "cuda_runtime.h"
 #include <cstdlib>
 
 class GPUPottsSolver {

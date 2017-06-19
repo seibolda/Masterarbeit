@@ -7,9 +7,15 @@
     #define __global__
 #endif
 
-#include <cstdint>
+#define HORIZONTAL 0
+#define VERTICAL 1
+#define DIAGONAL 2
+#define ANTIDIAGONAL 3
 
-/*__global__ void printArrayKernel(float* array, uint32_t w, uint32_t h) {
+#include <cstdint>
+#include "CudaCopyData.cu"
+
+__global__ void printArrayKernel(float* array, uint32_t w, uint32_t h) {
     uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
     uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
 
@@ -18,7 +24,7 @@
         if(0 != array[index])
             printf("Index: %d, Value: %f\n", index, array[index]);
     }
-}*/
+}
 
 __global__ void setWeightsKernel(float* weights, uint32_t w, uint32_t h) {
     uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
@@ -40,58 +46,8 @@ __global__ void updateWeightsPrimeKernel(float* weightsPrime, float* weights, ui
     }
 }
 
-__global__ void prepareHorizontalPottsProblems(float* in, float* u, float* v, float* weights, float* weightsPrime,
-                                               float* lam, float mu, uint32_t w, uint32_t h, uint32_t nc) {
-    uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
-    uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
-    uint32_t c = threadIdx.z + blockDim.z * blockIdx.z;
-
-    if(x < w && y < h && c < nc) {
-        uint32_t index = x + w * y + w * h * c;
-        uint32_t weightsIndex = x + w * y;
-
-        u[index] = (weights[weightsIndex] * in[index] + v[index] * mu - lam[index]) / weightsPrime[weightsIndex];
-
-    }
-}
-
-__global__ void prepareVerticalPottsProblems(float* in, float* u, float* v, float* weights, float* weightsPrime,
-                                               float* lam, float mu, uint32_t w, uint32_t h, uint32_t nc) {
-    uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
-    uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
-    uint32_t c = threadIdx.z + blockDim.z * blockIdx.z;
-
-    if(x < w && y < h && c < nc) {
-        uint32_t index = x + w * y + w * h * c;
-        uint32_t weightsIndex = x + w * y;
-
-        v[index] = (weights[weightsIndex] * in[index] + u[index] * mu + lam[index]) / weightsPrime[weightsIndex];
-
-    }
-}
-
-__global__ void updateLagrangeMultiplierKernel(float* u, float* v, float* lam, float* temp, float mu, uint32_t w, uint32_t h, uint32_t nc) {
-    uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
-    uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
-    uint32_t c = threadIdx.z + blockDim.z * blockIdx.z;
-
-    if(x < w && y < h && c < nc) {
-        uint32_t index = x + w * y + w * h * c;
-        temp[index] = u[index] - v[index];
-        lam[index] = lam[index] + temp[index] * mu;
-    }
-}
-
-__host__ __device__ float normQuad(float* array, uint32_t position, uint32_t nc, uint32_t colorOffset) {
-    float result = 0;
-    for(uint32_t c = 0; c < nc; c++) {
-        result += array[position + c*colorOffset]*array[position + c*colorOffset];
-    }
-    return result;
-}
-
 __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* w,
-                                  float gamma, uint32_t rowCol, uint32_t n, uint32_t widthOrHeight, uint32_t nc) {
+                                  float gamma, uint32_t rowCol, uint32_t n, uint32_t widthOrHeight, uint32_t nc, uint8_t direction) {
     uint32_t y = rowCol;
     uint32_t h = widthOrHeight;
 
@@ -101,18 +57,16 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint
     float mu1, mu2, mu3;
 
 
-
-    float wTemp, mTemp, wDiffTemp;
-    for(uint32_t j = 0; j < n; j++) {
-        wTemp = weights[j + y*n];
-        for(uint32_t c = 0; c < nc; c++) {
-            m[j + 1 + y*(n+1) + c*(n+1)*(h+1)] = arrayToUpdate[j + y*n + c*n*h] * wTemp + m[j + y*(n+1) + c*(n+1)*(h+1)];
-        }
-        float nQ = normQuad(arrayToUpdate, j+y*n, nc, n*h);
-        s[j + 1 + y*(n+1)] = nQ * wTemp + s[j + y*(n+1)];
-        w[j + 1 + y*(n+1)] = w[j + y*(n+1)] + wTemp;
+    switch (direction) {
+        case HORIZONTAL:
+            copyDataHorizontally(arrayToUpdate, weights, m, s, w, y, n, h, nc);
+            break;
+        case VERTICAL:
+            copyDataVertically(arrayToUpdate, weights, m, s, w, y, h, n, nc);
+            break;
     }
 
+    float wTemp, mTemp, wDiffTemp;
     for(uint32_t r = 1; r <= n; r++) {
         arrP[r - 1 + y*n] = s[r + y*(n+1)] - (normQuad(m, r + y*(n+1), nc, (n+1)*(h+1)) / w[r + y*(n+1)]);;
         arrJ[r - 1 + y*n] = 0;
@@ -149,13 +103,21 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint
             mu3 = (m[r + y*(n+1) + 2*(n+1)*(h+1)] - m[l + y*(n+1) + 2*(n+1)*(h+1)]) / wTemp;
         }
 
-        for(uint32_t j = l; j < r; j++) {
+        switch (direction) {
+            case HORIZONTAL:
+                copyDataBackHorizontally(arrayToUpdate, l, r, mu1, mu2, mu3, y, n, h, nc);
+                break;
+            case VERTICAL:
+                copyDataBackVertically(arrayToUpdate, l, r, mu1, mu2, mu3, y, h, n, nc);
+                break;
+        }
+        /*for(uint32_t j = l; j < r; j++) {
             arrayToUpdate[j + y*n] = mu1;
             if(nc > 1) {
                 arrayToUpdate[j + y * n + n * h] = mu2;
                 arrayToUpdate[j + y * n + 2 * n * h] = mu3;
             }
-        }
+        }*/
         r = l;
         if (r < 1) break;
         l = arrJ[r - 1 + y*n];
@@ -167,7 +129,7 @@ __global__ void applyHorizontalPottsSolverKernel(float* u, float* weights, uint3
     uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
 
     if(y < h) {
-        doPottsStep(u, weights, arrJ, arrP, m, s, wPotts, gamma, y, w, h, nc);
+        doPottsStep(u, weights, arrJ, arrP, m, s, wPotts, gamma, y, w, h, nc, HORIZONTAL);
     }
 }
 
@@ -176,29 +138,10 @@ __global__ void applyVerticalPottsSolverKernel(float* v, float* weights, uint32_
     uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
 
     if(x < w) {
-        doPottsStep(v, weights, arrJ, arrP, m, s, wPotts, gamma, x, h, w, nc);
+        doPottsStep(v, weights, arrJ, arrP, m, s, wPotts, gamma, x, h, w, nc, VERTICAL);
     }
 }
 
-__global__ void swapImageCCWKernel(float* in, float* out, uint32_t w, uint32_t h, uint32_t nc) {
-    uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
-    uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
-    uint32_t c = threadIdx.z + blockDim.z * blockIdx.z;
-
-    if(x < w && y < h && c < nc) {
-        out[y + (w-x-1)*h + c*w*h] = in[x + y*w + c*w*h];
-    }
-}
-
-__global__ void swapImageCWKernel(float* in, float* out, uint32_t w, uint32_t h, uint32_t nc) {
-    uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
-    uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
-    uint32_t c = threadIdx.z + blockDim.z * blockIdx.z;
-
-    if(x < w && y < h && c < nc) {
-        out[(h-y-1) + x*h + c*w*h] = in[x + y*w + c*w*h];
-    }
-}
 
 
 #endif
