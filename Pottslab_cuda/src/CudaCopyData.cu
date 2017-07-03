@@ -94,8 +94,6 @@ __host__ __device__ void copyDataDiagonallyUpper(float* arrayToUpdate, float* we
         s[j + 1 + idxBase] = nQ * wTemp + s[j + idxBase];
         w[j + 1 + idxBase] = w[j + idxBase] + wTemp;
     }
-
-
 }
 
 __host__ __device__ void copyDataBackDiagonallyUpper(float* arrayToUpdate, uint32_t l, uint32_t r, float mu1, float mu2, float mu3, uint32_t col, uint32_t width, uint32_t height, uint32_t nc) {
@@ -142,27 +140,64 @@ __host__ __device__ void copyDataBackDiagonallyLower(float* arrayToUpdate, uint3
 
 
 
-__host__ __device__ void copyDataAntiDiagonally(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t row, uint32_t width, uint32_t height, uint32_t nc) {
-    /*uint32_t sDiag = min(height - row, width);
+__host__ __device__ void copyDataAntiDiagonallyUpper(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t col, uint32_t width, uint32_t height, uint32_t nc) {
+    uint32_t sDiag = min(height, width - col);
 
-     float wTemp = 0;
-    size_t idxBase = (col*height+1);
+    float wTemp = 0;
+    size_t idxBase = col*(height+1);
     size_t idxColorBase = (width+1)*(height+1);
 
-    for(uint32_t j = 0; j < sdiag; j++) {
+    for(uint32_t j = 0; j < sDiag; j++) {
 
-        wTemp = weights[j+col + j*width];
-        for(uint32_t c = 0; c < nc; c++) {
-            m[j + 1 + idxBase + c*idxColorBase] = arrayToUpdate[j+col + j*width + c*width*height] * wTemp + m[j + idxBase + c*idxColorBase];
+        wTemp = weights[width-1-(col+j) + j*width];
+        for(uint8_t c = 0; c < nc; c++) {
+            m[j + 1 + idxBase + c*idxColorBase] = arrayToUpdate[width-1-(col+j) + j*width + c*width*height] * wTemp + m[j + idxBase + c*idxColorBase];
         }
-        float nQ = normQuad(arrayToUpdate, j+col + j*width, nc, width*height);
+        float nQ = normQuad(arrayToUpdate, width-1-(col+j) + j*width, nc, width*height);
         s[j + 1 + idxBase] = nQ * wTemp + s[j + idxBase];
         w[j + 1 + idxBase] = w[j + idxBase] + wTemp;
-    }*/
+    }
 }
 
-__host__ __device__ void copyDataBackAntiDiagonally() {
+__host__ __device__ void copyDataBackAntiDiagonallyUpper(float* arrayToUpdate, uint32_t l, uint32_t r, float mu1, float mu2, float mu3, uint32_t col, uint32_t width, uint32_t height, uint32_t nc) {
+    for(uint32_t j = l; j < r; j++) {
+        arrayToUpdate[width-1-(col+j) + j*width] = mu1;
+        if(nc > 1) {
+            arrayToUpdate[width-1-(col+j) + j*width + width*height] = mu2;
+            arrayToUpdate[width-1-(col+j) + j*width + 2*width*height] = mu3;
+        }
+    }
+}
 
+
+
+__host__ __device__ void copyDataAntiDiagonallyLower(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t row, uint32_t width, uint32_t height, uint32_t nc) {
+    uint32_t sDiag = min(height - row, width);
+
+    float wTemp = 0;
+    size_t idxBase = (row-1)*(height+1) + width*(height+1);
+    size_t idxColorBase = (width+1)*(height+1);
+
+    for(uint32_t j = 0; j < sDiag; j++) {
+
+        wTemp = weights[width-1-j + (j+row)*width];
+        for(uint8_t c = 0; c < nc; c++) {
+            m[j + 1 + idxBase + c*idxColorBase] = arrayToUpdate[width-1-j + (j+row)*width + c*width*height] * wTemp + m[j + idxBase + c*idxColorBase];
+        }
+        float nQ = normQuad(arrayToUpdate, width-1-j + (j+row)*width, nc, width*height);
+        s[j + 1 + idxBase] = nQ * wTemp + s[j + idxBase];
+        w[j + 1 + idxBase] = w[j + idxBase] + wTemp;
+    }
+}
+
+__host__ __device__ void copyDataBackAntiDiagonallyLower(float* arrayToUpdate, uint32_t l, uint32_t r, float mu1, float mu2, float mu3, uint32_t row, uint32_t width, uint32_t height, uint32_t nc) {
+    for(uint32_t j = l; j < r; j++) {
+        arrayToUpdate[width-1-j + (j+row)*width] = mu1;
+        if(nc > 1) {
+            arrayToUpdate[width-1-j + (j+row)*width + width*height] = mu2;
+            arrayToUpdate[width-1-j + (j+row)*width + 2*width*height] = mu3;
+        }
+    }
 }
 
 
