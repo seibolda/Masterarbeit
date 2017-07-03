@@ -9,8 +9,10 @@
 
 #define HORIZONTAL 0
 #define VERTICAL 1
-#define DIAGONAL 2
-#define ANTIDIAGONAL 3
+#define DIAGONAL_UPPER 2
+#define DIAGONAL_LOWER 3
+#define ANTIDIAGONAL_UPPER 4
+#define ANTIDIAGONAL_LOWER 5
 
 #include <cstdint>
 #include "CudaCopyData.cu"
@@ -47,9 +49,8 @@ __global__ void updateWeightsPrimeKernel(float* weightsPrime, float* weights, ui
 }
 
 __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* w,
-                                  float gamma, uint32_t rowCol, uint32_t n, uint32_t widthOrHeight, uint32_t nc, uint8_t direction) {
-    uint32_t y = rowCol;
-    uint32_t h = widthOrHeight;
+                                  float gamma, uint32_t row, uint32_t col, uint32_t width, uint32_t height, uint32_t nc, uint8_t direction) {
+    uint32_t y, h, n, length;
 
     float d = 0;
     float p = 0;
@@ -59,20 +60,42 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint
 
     switch (direction) {
         case HORIZONTAL:
-            copyDataHorizontally(arrayToUpdate, weights, m, s, w, y, n, h, nc);
+            y = row;
+            h = height;
+            n = width;
+            length = width;
+            copyDataHorizontally(arrayToUpdate, weights, m, s, w, row, width, height, nc);
             break;
         case VERTICAL:
-            copyDataVertically(arrayToUpdate, weights, m, s, w, y, h, n, nc);
+            y = col;
+            h = width;
+            n = height;
+            length = height;
+            copyDataVertically(arrayToUpdate, weights, m, s, w, col, width, height, nc);
+            break;
+        case DIAGONAL_UPPER:
+            y = col;
+            h = width;
+            n = height;
+            length = min(height, width - col);
+            copyDataDiagonallyUpper(arrayToUpdate, weights, m, s, w, col, width, height, nc);
+            break;
+        case DIAGONAL_LOWER:
+            y = row + width - 1;
+            h = width;
+            n = height;
+            length = min(height - row, width);
+            copyDataDiagonallyLower(arrayToUpdate, weights, m, s, w, row, width, height, nc);
             break;
     }
 
     float wTemp, mTemp, wDiffTemp;
-    for(uint32_t r = 1; r <= n; r++) {
-        arrP[r - 1 + y*n] = s[r + y*(n+1)] - (normQuad(m, r + y*(n+1), nc, (n+1)*(h+1)) / w[r + y*(n+1)]);;
+    for(uint32_t r = 1; r <= length; r++) {
+        arrP[r - 1 + y*n] = s[r + y*(n+1)] - (normQuad(m, r + y*(n+1), nc, (n+1)*(h+1)) / w[r + y*(n+1)]);
         arrJ[r - 1 + y*n] = 0;
         for(uint32_t l = r; l >= 2; l--) {
             mTemp = 0;
-            for(uint32_t k = 0; k < nc; k++) {
+            for(uint8_t k = 0; k < nc; k++) {
                 mTemp = mTemp + (m[r + y*(n+1) + k*(n+1)*(h+1)]-m[l - 1 + y*(n+1) + k*(n+1)*(h+1)]) * (m[r + y*(n+1) + k*(n+1)*(h+1)]-m[l - 1 + y*(n+1) + k*(n+1)*(h+1)]);
             }
             wDiffTemp = w[r + y*(n+1)] - w[l - 1 + y*(n+1)];
@@ -93,7 +116,7 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint
         }
     }
 
-    uint32_t r = n;
+    uint32_t r = length;
     uint32_t l = arrJ[r - 1 + y*n];
     while(r > 0) {
         wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
@@ -105,10 +128,16 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint
 
         switch (direction) {
             case HORIZONTAL:
-                copyDataBackHorizontally(arrayToUpdate, l, r, mu1, mu2, mu3, y, n, h, nc);
+                copyDataBackHorizontally(arrayToUpdate, l, r, mu1, mu2, mu3, row, width, height, nc);
                 break;
             case VERTICAL:
-                copyDataBackVertically(arrayToUpdate, l, r, mu1, mu2, mu3, y, h, n, nc);
+                copyDataBackVertically(arrayToUpdate, l, r, mu1, mu2, mu3, col, width, height, nc);
+                break;
+            case DIAGONAL_UPPER:
+                copyDataBackDiagonallyUpper(arrayToUpdate, l, r, mu1, mu2, mu3, col, width, height, nc);
+                break;
+            case DIAGONAL_LOWER:
+                copyDataBackDiagonallyLower(arrayToUpdate, l, r, mu1, mu2, mu3, row, width, height, nc);
                 break;
         }
         /*for(uint32_t j = l; j < r; j++) {
@@ -126,19 +155,48 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint
 
 __global__ void applyHorizontalPottsSolverKernel(float* u, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* wPotts,
                                                  float gamma, uint32_t w, uint32_t h, uint32_t nc) {
-    uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
+    uint32_t row = threadIdx.y + blockDim.y * blockIdx.y;
 
-    if(y < h) {
-        doPottsStep(u, weights, arrJ, arrP, m, s, wPotts, gamma, y, w, h, nc, HORIZONTAL);
+    if(row < h) {
+        doPottsStep(u, weights, arrJ, arrP, m, s, wPotts, gamma, row, 0, w, h, nc, HORIZONTAL);
     }
 }
 
 __global__ void applyVerticalPottsSolverKernel(float* v, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* wPotts,
                                                float gamma, uint32_t w, uint32_t h, uint32_t nc) {
+    uint32_t col = threadIdx.x + blockDim.x * blockIdx.x;
+
+    if(col < w) {
+        doPottsStep(v, weights, arrJ, arrP, m, s, wPotts, gamma, 0, col, w, h, nc, VERTICAL);
+    }
+}
+
+__global__ void applyDiagonalUpperPottsSolverKernel(float* w_, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* wPotts,
+                                                 float gamma, uint32_t w, uint32_t h, uint32_t nc) {
+    uint32_t col = threadIdx.x + blockDim.x * blockIdx.x;
+
+    if(col < w) {
+        doPottsStep(w_, weights, arrJ, arrP, m, s, wPotts, gamma, 0, col, w, h, nc, DIAGONAL_UPPER);
+    }
+}
+
+__global__ void applyDiagonalLowerPottsSolverKernel(float* w_, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* wPotts,
+                                               float gamma, uint32_t w, uint32_t h, uint32_t nc) {
+    uint32_t row = threadIdx.x + blockDim.x * blockIdx.x;
+
+    if(row > 1 && row < h) {
+        doPottsStep(w_, weights, arrJ, arrP, m, s, wPotts, gamma, row, 0, w, h, nc, DIAGONAL_LOWER);
+    }
+}
+
+__global__ void applyAntidiagonalPottsSolverKernel(float* w_, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* wPotts,
+                                               float gamma, uint32_t w, uint32_t h, uint32_t nc) {
     uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
 
     if(x < w) {
-        doPottsStep(v, weights, arrJ, arrP, m, s, wPotts, gamma, x, h, w, nc, VERTICAL);
+        doPottsStep(w_, weights, arrJ, arrP, m, s, wPotts, gamma, 0, x, w, h, nc, ANTIDIAGONAL_UPPER);
+    } else if(x - w > 0 && x - w < h) {
+        doPottsStep(w_, weights, arrJ, arrP, m, s, wPotts, gamma, x-w, 0, w, h, nc, ANTIDIAGONAL_LOWER);
     }
 }
 

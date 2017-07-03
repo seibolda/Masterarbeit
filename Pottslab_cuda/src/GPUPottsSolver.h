@@ -52,6 +52,8 @@ private:
     dim3 gridHorizontal;
     dim3 blockVertical;
     dim3 gridVertical;
+    dim3 blockDiagonal;
+    dim3 gridDiagonal;
     dim3 gridSwap;
 
     cublasHandle_t cublasHandle;
@@ -59,6 +61,8 @@ private:
     float computeFNorm(float* inputImage);
 
     float updateError();
+
+    void clearHelperMemory();
 
 public:
     GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc);

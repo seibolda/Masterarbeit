@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
     GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, 2, width, height, numberChannels);
 
     timer.start();
-    gpuPottsSolver.solvePottsProblem4ADMM();
+    gpuPottsSolver.solvePottsProblem8ADMM();
     timer.end();
 //    gpuPottsSolver.doPottsOnCPU();
 //    gpuPottsSolver.swapTest();
