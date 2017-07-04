@@ -79,7 +79,12 @@ __host__ __device__ void copyDataDiagonallyUpper(float* arrayToUpdate, float* we
     uint32_t sDiag = min(height, width - col);
 
     float wTemp = 0;
-    size_t idxBase = col*(height+1);
+    size_t idxBase;
+    if(width < height) {
+        idxBase = col*(width+1);
+    } else {
+        idxBase = col*(height+1);
+    }
 
     for(uint32_t j = 0; j < sDiag; j++) {
 
@@ -145,7 +150,12 @@ __host__ __device__ void copyDataAntiDiagonallyUpper(float* arrayToUpdate, float
     uint32_t sDiag = min(height, width - col);
 
     float wTemp = 0;
-    size_t idxBase = col*(height+1);
+    size_t idxBase;
+    if(width < height) {
+        idxBase = col*(width+1);
+    } else {
+        idxBase = col*(height+1);
+    }
 
     for(uint32_t j = 0; j < sDiag; j++) {
 

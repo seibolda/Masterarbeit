@@ -77,8 +77,13 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint
             break;
         case DIAGONAL_UPPER:
             y = col;
-            h = width;
-            n = height;
+            if (width < height) {
+                h = height;
+                n = width;
+            } else {
+                h = width;
+                n = height;
+            }
             length = min(height, width - col);
             colorOffset = (min(height, width)+1)*(width+height-1);
             copyDataDiagonallyUpper(arrayToUpdate, weights, m, s, w, col, width, height, nc, colorOffset);
@@ -98,8 +103,13 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint
             break;
         case ANTIDIAGONAL_UPPER:
             y = col;
-            h = width;
-            n = height;
+            if (width < height) {
+                h = height;
+                n = width;
+            } else {
+                h = width;
+                n = height;
+            }
             length = min(height, width - col);
             colorOffset = (min(height, width)+1)*(width+height-1);
             copyDataAntiDiagonallyUpper(arrayToUpdate, weights, m, s, w, col, width, height, nc, colorOffset);
@@ -176,13 +186,6 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint
                 copyDataBackAntiDiagonallyLower(arrayToUpdate, l, r, mu1, mu2, mu3, row, width, height, nc);
                 break;
         }
-        /*for(uint32_t j = l; j < r; j++) {
-            arrayToUpdate[j + y*n] = mu1;
-            if(nc > 1) {
-                arrayToUpdate[j + y * n + n * h] = mu2;
-                arrayToUpdate[j + y * n + 2 * n * h] = mu3;
-            }
-        }*/
         r = l;
         if (r < 1) break;
         l = arrJ[r - 1 + y*n];
@@ -213,6 +216,8 @@ __global__ void applyDiagonalUpperPottsSolverKernel(float* w_, float* weights, u
 
     if(col < w) {
         doPottsStep(w_, weights, arrJ, arrP, m, s, wPotts, gamma, 0, col, w, h, nc, DIAGONAL_UPPER);
+    } else if (col > w && col < w+h) {
+        doPottsStep(w_, weights, arrJ, arrP, m, s, wPotts, gamma, col-w, 0, w, h, nc, DIAGONAL_LOWER);
     }
 }
 
@@ -231,6 +236,8 @@ __global__ void applyAntiDiagonalUpperPottsSolverKernel(float* z, float* weights
 
     if(col < w) {
         doPottsStep(z, weights, arrJ, arrP, m, s, wPotts, gamma, 0, col, w, h, nc, ANTIDIAGONAL_UPPER);
+    } else if (col > w && col < w+h) {
+        doPottsStep(z, weights, arrJ, arrP, m, s, wPotts, gamma, col-w, 0, w, h, nc, ANTIDIAGONAL_LOWER);
     }
 }
 
