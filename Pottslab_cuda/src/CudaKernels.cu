@@ -50,7 +50,7 @@ __global__ void updateWeightsPrimeKernel(float* weightsPrime, float* weights, ui
 
 __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* w,
                                   float gamma, uint32_t row, uint32_t col, uint32_t width, uint32_t height, uint32_t nc, uint8_t direction) {
-    uint32_t y, h, n, length;
+    uint32_t y, h, n, length, colorOffset;
 
     float d = 0;
     float p = 0;
@@ -64,53 +64,69 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint
             h = height;
             n = width;
             length = width;
-            copyDataHorizontally(arrayToUpdate, weights, m, s, w, row, width, height, nc);
+            colorOffset = (n+1)*(h+1);
+            copyDataHorizontally(arrayToUpdate, weights, m, s, w, row, width, height, nc, colorOffset);
             break;
         case VERTICAL:
             y = col;
             h = width;
             n = height;
             length = height;
-            copyDataVertically(arrayToUpdate, weights, m, s, w, col, width, height, nc);
+            colorOffset = (n+1)*(h+1);
+            copyDataVertically(arrayToUpdate, weights, m, s, w, col, width, height, nc, colorOffset);
             break;
         case DIAGONAL_UPPER:
             y = col;
             h = width;
             n = height;
             length = min(height, width - col);
-            copyDataDiagonallyUpper(arrayToUpdate, weights, m, s, w, col, width, height, nc);
+            colorOffset = (min(height, width)+1)*(width+height-1);
+            copyDataDiagonallyUpper(arrayToUpdate, weights, m, s, w, col, width, height, nc, colorOffset);
             break;
         case DIAGONAL_LOWER:
+            if (width < height) {
+                h = height;
+                n = width;
+            } else {
+                h = width;
+                n = height;
+            }
             y = row + width - 1;
-            h = width;
-            n = height;
             length = min(height - row, width);
-            copyDataDiagonallyLower(arrayToUpdate, weights, m, s, w, row, width, height, nc);
+            colorOffset = (min(height, width)+1)*(width+height-1);
+            copyDataDiagonallyLower(arrayToUpdate, weights, m, s, w, row, width, height, nc, colorOffset);
             break;
         case ANTIDIAGONAL_UPPER:
             y = col;
             h = width;
             n = height;
             length = min(height, width - col);
-            copyDataAntiDiagonallyUpper(arrayToUpdate, weights, m, s, w, col, width, height, nc);
+            colorOffset = (min(height, width)+1)*(width+height-1);
+            copyDataAntiDiagonallyUpper(arrayToUpdate, weights, m, s, w, col, width, height, nc, colorOffset);
             break;
         case ANTIDIAGONAL_LOWER:
+            if (width < height) {
+                h = height;
+                n = width;
+            } else {
+                h = width;
+                n = height;
+            }
             y = row + width - 1;
-            h = width;
-            n = height;
             length = min(height - row, width);
-            copyDataAntiDiagonallyLower(arrayToUpdate, weights, m, s, w, row, width, height, nc);
+            colorOffset = (min(height, width)+1)*(width+height-1);
+            copyDataAntiDiagonallyLower(arrayToUpdate, weights, m, s, w, row, width, height, nc, colorOffset);
             break;
     }
 
     float wTemp, mTemp, wDiffTemp;
     for(uint32_t r = 1; r <= length; r++) {
-        arrP[r - 1 + y*n] = s[r + y*(n+1)] - (normQuad(m, r + y*(n+1), nc, (n+1)*(h+1)) / w[r + y*(n+1)]);
+        arrP[r - 1 + y*n] = s[r + y*(n+1)] - (normQuad(m, r + y*(n+1), nc, colorOffset) / w[r + y*(n+1)]);
         arrJ[r - 1 + y*n] = 0;
         for(uint32_t l = r; l >= 2; l--) {
             mTemp = 0;
             for(uint8_t k = 0; k < nc; k++) {
-                mTemp = mTemp + (m[r + y*(n+1) + k*(n+1)*(h+1)]-m[l - 1 + y*(n+1) + k*(n+1)*(h+1)]) * (m[r + y*(n+1) + k*(n+1)*(h+1)]-m[l - 1 + y*(n+1) + k*(n+1)*(h+1)]);
+                mTemp = mTemp + (m[r + y*(n+1) + k*colorOffset]-m[l - 1 + y*(n+1) + k*colorOffset]) * (m[r + y*(n+1) + k*colorOffset]-m[l - 1 + y*(n+1) + k*colorOffset]);
             }
             wDiffTemp = w[r + y*(n+1)] - w[l - 1 + y*(n+1)];
             if(0 == wDiffTemp) {
@@ -136,8 +152,8 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, float* weights, uint
         wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
         mu1 = (m[r + y*(n+1)] - m[l + y*(n+1)]) / wTemp;
         if(nc > 1) {
-            mu2 = (m[r + y*(n+1) + (n+1)*(h+1)] - m[l + y*(n+1) + (n+1)*(h+1)]) / wTemp;
-            mu3 = (m[r + y*(n+1) + 2*(n+1)*(h+1)] - m[l + y*(n+1) + 2*(n+1)*(h+1)]) / wTemp;
+            mu2 = (m[r + y*(n+1) + colorOffset] - m[l + y*(n+1) + colorOffset]) / wTemp;
+            mu3 = (m[r + y*(n+1) + 2*colorOffset] - m[l + y*(n+1) + 2*colorOffset]) / wTemp;
         }
 
         switch (direction) {
