@@ -62,6 +62,8 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
     s.SetBytewiseValue(0);
     wPotts.CreateBuffer(dimension);
     wPotts.SetBytewiseValue(0);
+    muTemp.CreateBuffer((w+h)*nc);
+    muTemp.SetBytewiseValue(0);
 
     block = dim3(32, 32, 1); // 32*32 = 1024 threads
     // ensure enough blocks to cover w * h elements (round up)
@@ -99,6 +101,7 @@ GPUPottsSolver::~GPUPottsSolver() {
     m.DestroyBuffer();
     s.DestroyBuffer();
     wPotts.DestroyBuffer();
+    muTemp.DestroyBuffer();
 
     CUBLAS_CHECK(cublasDestroy(cublasHandle));
 }
@@ -152,7 +155,8 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
                 weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam1.GetDevicePtr(), mu, w, h, nc);
         CUDA_CHECK;
         applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime, w, h, nc);
+                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(),
+                muTemp.GetDevicePtr(), gammaPrime, w, h, nc);
         CUDA_CHECK;
         clearHelperMemory();
 
@@ -161,7 +165,8 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
                 weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam1.GetDevicePtr(), mu, w, h, nc);
         CUDA_CHECK;
         applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime, w, h, nc);
+                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(),
+                muTemp.GetDevicePtr(), gammaPrime, w, h, nc);
         CUDA_CHECK;
         clearHelperMemory();
 
@@ -210,10 +215,11 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
         // Horizontal
         prepareHorizontalPottsProblems8ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
                                             w_.GetDevicePtr(), z.GetDevicePtr(), weights.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                                            lam1.GetDevicePtr(), lam2.GetDevicePtr(), lam3.GetDevicePtr(), mu, w, h ,nc);
+                                            lam1.GetDevicePtr(), lam2.GetDevicePtr(), lam3.GetDevicePtr(), mu, w, h , nc);
         CUDA_CHECK;
         applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeC, w, h, nc);
+                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(),
+                muTemp.GetDevicePtr(), gammaPrimeC, w, h, nc);
         CUDA_CHECK;
         clearHelperMemory();
 
@@ -221,14 +227,12 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
         // Diagonal
         prepareDiagonalPottsProblems8ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
                                             w_.GetDevicePtr(), z.GetDevicePtr(), weights.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                                            lam2.GetDevicePtr(), lam4.GetDevicePtr(), lam6.GetDevicePtr(), mu, w, h ,nc);
+                                            lam2.GetDevicePtr(), lam4.GetDevicePtr(), lam6.GetDevicePtr(), mu, w, h , nc);
         CUDA_CHECK;
-        applyDiagonalUpperPottsSolverKernel<<<gridDiagonal, blockDiagonal>>> (w_.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeD, w, h, nc);
+        applyDiagonalPottsSolverKernel<<<gridDiagonal, blockDiagonal>>> (w_.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(),
+                muTemp.GetDevicePtr(), gammaPrimeD, w, h, nc);
         CUDA_CHECK;
-//        applyDiagonalLowerPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (w_.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-//                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeD, w, h, nc);
-//        CUDA_CHECK;
         clearHelperMemory();
 
 
@@ -236,10 +240,11 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
         // Vertical
         prepareVerticalPottsProblems8ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
                                             w_.GetDevicePtr(), z.GetDevicePtr(), weights.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                                            lam1.GetDevicePtr(), lam4.GetDevicePtr(), lam5.GetDevicePtr(), mu, w, h ,nc);
+                                            lam1.GetDevicePtr(), lam4.GetDevicePtr(), lam5.GetDevicePtr(), mu, w, h , nc);
         CUDA_CHECK;
         applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeC, w, h, nc);
+                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(),
+                muTemp.GetDevicePtr(), gammaPrimeC, w, h, nc);
         CUDA_CHECK;
         clearHelperMemory();
 
@@ -248,14 +253,12 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
         // Antidiagonal
         prepareAntidiagonalPottsProblems8ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
                                             w_.GetDevicePtr(), z.GetDevicePtr(), weights.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                                            lam3.GetDevicePtr(), lam5.GetDevicePtr(), lam6.GetDevicePtr(), mu, w, h ,nc);
+                                            lam3.GetDevicePtr(), lam5.GetDevicePtr(), lam6.GetDevicePtr(), mu, w, h , nc);
         CUDA_CHECK;
-        applyAntiDiagonalUpperPottsSolverKernel<<<gridDiagonal, blockDiagonal>>> (z.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeD, w, h, nc);
+        applyAntiDiagonalPottsSolverKernel<<<gridDiagonal, blockDiagonal>>> (z.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(),
+                muTemp.GetDevicePtr(), gammaPrimeD, w, h, nc);
         CUDA_CHECK;
-//        applyAntiDiagonalLowerPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (z.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-//                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeD, w, h, nc);
-//        CUDA_CHECK;
         clearHelperMemory();
 
 //        testImage.SetRawData(z.DownloadData());

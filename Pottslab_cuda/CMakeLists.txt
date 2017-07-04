@@ -15,8 +15,8 @@ set(CUDA_NVCC_FLAGS
 
 set(SOURCE_FILES
         src/main.cu
-        src/helper.cu
-        src/CudaBuffer.cu
+        src/util/helper.cu
+        src/util/CudaBuffer.cu
         src/Image.cpp
 )
 

@@ -1,7 +1,7 @@
 #ifndef _IMAGE_H_
 #define _IMAGE_H_
 
-#include "helper.h"
+#include "util/helper.h"
 #include <cstdint>
 #include <string>
 #include <iostream>

@@ -2,7 +2,7 @@
 #define _GPU_POTTS_SOLVER_H_
 
 #include <cmath>
-#include "CudaBuffer.h"
+#include "util/CudaBuffer.h"
 #include "Image.h"
 #include "cublas_v2.h"
 #include "cuda_runtime.h"
@@ -45,6 +45,7 @@ private:
     CudaBuffer<float> m;
     CudaBuffer<float> s;
     CudaBuffer<float> wPotts;
+    CudaBuffer<float> muTemp;
 
     dim3 block;
     dim3 grid;
