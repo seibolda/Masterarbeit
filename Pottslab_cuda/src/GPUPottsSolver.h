@@ -45,7 +45,6 @@ private:
     CudaBuffer<float> m;
     CudaBuffer<float> s;
     CudaBuffer<float> wPotts;
-    CudaBuffer<float> muTemp;
 
     dim3 block;
     dim3 grid;
