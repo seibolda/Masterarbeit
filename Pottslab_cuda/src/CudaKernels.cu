@@ -17,17 +17,6 @@
 #include <cstdint>
 #include "CudaCopyData.cu"
 
-__global__ void printArrayKernel(float* array, uint32_t w, uint32_t h) {
-    uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
-    uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
-
-    if(x < w && y < h) {
-        uint32_t index = x + w * y;
-        if(0 != array[index])
-            printf("Index: %d, Value: %f\n", index, array[index]);
-    }
-}
-
 __global__ void setWeightsKernel(float* weights, uint32_t w, uint32_t h) {
     uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
     uint32_t y = threadIdx.y + blockDim.y * blockIdx.y;
@@ -151,11 +140,11 @@ __global__ void applyDiagonalPottsSolverKernel(float* w_, float* weights, uint32
 
     if(col < w) {
         uint32_t length = min(h, w - col);
-        copyDataDiagonallyUpper(w_, weights, m, s, wPotts, col, w, h, nc, colorOffset);
+        copyDataDiagonallyUpper(w_, weights, m, s, wPotts, col, w, h, nc, colorOffset, nPotts, length);
         doPottsStep(w_, weights, arrJ, arrP, m, s, wPotts, gamma, 0, col, w, h, nc, DIAGONAL_UPPER, col, nPotts, length, colorOffset);
     } else if (col > w && col < w+h) {
         uint32_t length = min(h - (col - w), w);
-        copyDataDiagonallyLower(w_, weights, m, s, wPotts, col-w, w, h, nc, colorOffset);
+        copyDataDiagonallyLower(w_, weights, m, s, wPotts, col-w, w, h, nc, colorOffset, nPotts, length);
         doPottsStep(w_, weights, arrJ, arrP, m, s, wPotts, gamma, col-w, 0, w, h, nc, DIAGONAL_LOWER, col-1, nPotts, length, colorOffset);
     }
 }
@@ -166,11 +155,11 @@ __global__ void applyAntiDiagonalPottsSolverKernel(float* z, float* weights, uin
 
     if(col < w) {
         uint32_t length = min(h, w - col);
-        copyDataAntiDiagonallyUpper(z, weights, m, s, wPotts, col, w, h, nc, colorOffset);
+        copyDataAntiDiagonallyUpper(z, weights, m, s, wPotts, col, w, h, nc, colorOffset, nPotts, length);
         doPottsStep(z, weights, arrJ, arrP, m, s, wPotts, gamma, 0, col, w, h, nc, ANTIDIAGONAL_UPPER, col, nPotts, length, colorOffset);
     } else if (col > w && col < w+h) {
         uint32_t length = min(h - (col - w), w);
-        copyDataAntiDiagonallyLower(z, weights, m, s, wPotts, col-w, w, h, nc, colorOffset);
+        copyDataAntiDiagonallyLower(z, weights, m, s, wPotts, col-w, w, h, nc, colorOffset, nPotts, length);
         doPottsStep(z, weights, arrJ, arrP, m, s, wPotts, gamma, col-w, 0, w, h, nc, ANTIDIAGONAL_LOWER, col-1, nPotts, length, colorOffset);
     }
 }

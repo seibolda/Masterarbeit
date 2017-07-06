@@ -74,18 +74,12 @@ __host__ __device__ void copyDataBackVertically(float* arrayToUpdate, uint32_t l
 
 
 
-__host__ __device__ void copyDataDiagonallyUpper(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t col, uint32_t width, uint32_t height, uint32_t nc, uint32_t colorOffset) {
+__host__ __device__ void copyDataDiagonallyUpper(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t col, uint32_t width,
+                                                 uint32_t height, uint32_t nc, uint32_t colorOffset, uint32_t smallerDimension, uint32_t sDiag) {
 
-    uint32_t sDiag = min(height, width - col);
+    size_t idxBase = col*(smallerDimension+1);
 
     float wTemp = 0;
-    size_t idxBase;
-    if(width < height) {
-        idxBase = col*(width+1);
-    } else {
-        idxBase = col*(height+1);
-    }
-
     for(uint32_t j = 0; j < sDiag; j++) {
 
         wTemp = weights[j+col + j*width];
@@ -110,18 +104,12 @@ __host__ __device__ void copyDataBackDiagonallyUpper(float* arrayToUpdate, uint3
 
 
 
-__host__ __device__ void copyDataDiagonallyLower(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t row, uint32_t width, uint32_t height, uint32_t nc, uint32_t colorOffset) {
+__host__ __device__ void copyDataDiagonallyLower(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t row, uint32_t width,
+                                                 uint32_t height, uint32_t nc, uint32_t colorOffset, uint32_t smallerDimension, uint32_t sDiag) {
 
-    uint32_t sDiag = min(height - row, width);
-    size_t idxBase;
+    size_t idxBase = (row-1)*(smallerDimension+1) + width*(smallerDimension+1);
 
     float wTemp = 0;
-    if(width < height) {
-        idxBase = (row-1)*(width+1) + width*(width+1);
-    } else {
-        idxBase = (row-1)*(height+1) + width*(height+1);
-    }
-
     for(uint32_t j = 0; j < sDiag; j++) {
 
         wTemp = weights[j + row*width + j*width];
@@ -146,17 +134,12 @@ __host__ __device__ void copyDataBackDiagonallyLower(float* arrayToUpdate, uint3
 
 
 
-__host__ __device__ void copyDataAntiDiagonallyUpper(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t col, uint32_t width, uint32_t height, uint32_t nc, uint32_t colorOffset) {
-    uint32_t sDiag = min(height, width - col);
+__host__ __device__ void copyDataAntiDiagonallyUpper(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t col, uint32_t width,
+                                                     uint32_t height, uint32_t nc, uint32_t colorOffset, uint32_t smallerDimension, uint32_t sDiag) {
+
+    size_t idxBase = col*(smallerDimension+1);
 
     float wTemp = 0;
-    size_t idxBase;
-    if(width < height) {
-        idxBase = col*(width+1);
-    } else {
-        idxBase = col*(height+1);
-    }
-
     for(uint32_t j = 0; j < sDiag; j++) {
 
         wTemp = weights[width-1-(col+j) + j*width];
@@ -181,17 +164,12 @@ __host__ __device__ void copyDataBackAntiDiagonallyUpper(float* arrayToUpdate, u
 
 
 
-__host__ __device__ void copyDataAntiDiagonallyLower(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t row, uint32_t width, uint32_t height, uint32_t nc, uint32_t colorOffset) {
-    uint32_t sDiag = min(height - row, width);
+__host__ __device__ void copyDataAntiDiagonallyLower(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t row, uint32_t width,
+                                                     uint32_t height, uint32_t nc, uint32_t colorOffset, uint32_t smallerDimension, uint32_t sDiag) {
+
+    size_t idxBase = (row-1)*(smallerDimension+1) + width*(smallerDimension+1);
 
     float wTemp = 0;
-    size_t idxBase;
-    if(width < height) {
-        idxBase = (row-1)*(width+1) + width*(width+1);
-    } else {
-        idxBase = (row-1)*(height+1) + width*(height+1);
-    }
-
     for(uint32_t j = 0; j < sDiag; j++) {
 
         wTemp = weights[width-1-j + (j+row)*width];
