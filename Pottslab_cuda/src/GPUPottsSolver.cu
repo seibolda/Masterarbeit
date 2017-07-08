@@ -52,7 +52,7 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
     size_t dimension = (smallerDimension+1)*(w+h-1);
     arrJ.CreateBuffer(dimension);
     arrJ.SetBytewiseValue(0);
-    arrP.CreateBuffer(dimension);
+    arrP.CreateBuffer(dimension*2+1);
     arrP.SetBytewiseValue(0);
     m.CreateBuffer((dimension)*nc);
     m.SetBytewiseValue(0);
@@ -138,7 +138,7 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
     uint32_t nVer = h;
     uint32_t colorOffset = (w+1)*(h+1);
 
-//    ImageRGB testImage(w, h);
+    ImageRGB testImage(w, h);
 
     setWeightsKernel <<<grid, block>>> (weights.GetDevicePtr(), w, h);
 
@@ -157,7 +157,13 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
                 arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime,
                 w, h, nc, nHor, colorOffset);
         CUDA_CHECK;
+        copyHorizontallyTest <<<grid, block>>> (u.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc);
+        CUDA_CHECK;
         clearHelperMemory();
+
+//        testImage.SetRawData(u.DownloadData());
+//        testImage.Show("Test Image", 100+w, 100);
+//        cv::waitKey(0);
 
 
         prepareVerticalPottsProblems4ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
@@ -167,11 +173,11 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
                 arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime,
                 w, h, nc, nVer, colorOffset);
         CUDA_CHECK;
+        copyVerticallyTest <<<grid, block>>> (v.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc);
+        CUDA_CHECK;
         clearHelperMemory();
 
-//        testImage.SetRawData(v.DownloadData());
-//        testImage.Show("Test Image", 100+w, 100);
-//        cv::waitKey(0);
+
 
 
         updateLagrangeMultiplierKernel4ADMM <<<grid,block>>> (u.GetDevicePtr(), v.GetDevicePtr(), lam1.GetDevicePtr(),
