@@ -128,6 +128,32 @@ float GPUPottsSolver::updateError() {
     return errorCublas;
 }
 
+void GPUPottsSolver::horizontalPotts4ADMM(uint32_t nHor, uint32_t colorOffset) {
+    prepareHorizontalPottsProblems4ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
+            weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam1.GetDevicePtr(), mu, w, h, nc);
+    CUDA_CHECK;
+    applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+            arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime,
+            w, h, nc, nHor, colorOffset);
+    CUDA_CHECK;
+    copyHorizontally <<<grid, block>>> (u.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffset);
+    CUDA_CHECK;
+    clearHelperMemory();
+}
+
+void GPUPottsSolver::verticalPotts4ADMM(uint32_t nVer, uint32_t colorOffset) {
+    prepareVerticalPottsProblems4ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
+            weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam1.GetDevicePtr(), mu, w, h, nc);
+    CUDA_CHECK;
+    applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+            arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime,
+            w, h, nc, nVer, colorOffset);
+    CUDA_CHECK;
+    copyVertically <<<grid, block>>> (v.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffset);
+    CUDA_CHECK;
+    clearHelperMemory();
+}
+
 void GPUPottsSolver::solvePottsProblem4ADMM() {
     if (0 == fNorm) {
         return;
@@ -138,7 +164,7 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
     uint32_t nVer = h;
     uint32_t colorOffset = (w+1)*(h+1);
 
-    ImageRGB testImage(w, h);
+//    ImageRGB testImage(w, h);
 
     setWeightsKernel <<<grid, block>>> (weights.GetDevicePtr(), w, h);
 
@@ -149,35 +175,13 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
         updateWeightsPrimeKernel <<<grid, block>>> (weightsPrime.GetDevicePtr(), weights.GetDevicePtr(), w, h, mu, 1);
         CUDA_CHECK;
 
+        horizontalPotts4ADMM(nHor, colorOffset);
 
-        prepareHorizontalPottsProblems4ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
-                weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam1.GetDevicePtr(), mu, w, h, nc);
-        CUDA_CHECK;
-        applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime,
-                w, h, nc, nHor, colorOffset);
-        CUDA_CHECK;
-        copyHorizontallyTest <<<grid, block>>> (u.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc);
-        CUDA_CHECK;
-        clearHelperMemory();
+        verticalPotts4ADMM(nVer, colorOffset);
 
 //        testImage.SetRawData(u.DownloadData());
 //        testImage.Show("Test Image", 100+w, 100);
 //        cv::waitKey(0);
-
-
-        prepareVerticalPottsProblems4ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
-                weights.GetDevicePtr(), weightsPrime.GetDevicePtr(), lam1.GetDevicePtr(), mu, w, h, nc);
-        CUDA_CHECK;
-        applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime,
-                w, h, nc, nVer, colorOffset);
-        CUDA_CHECK;
-        copyVerticallyTest <<<grid, block>>> (v.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc);
-        CUDA_CHECK;
-        clearHelperMemory();
-
-
 
 
         updateLagrangeMultiplierKernel4ADMM <<<grid,block>>> (u.GetDevicePtr(), v.GetDevicePtr(), lam1.GetDevicePtr(),
@@ -198,6 +202,70 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
 
 }
 
+void GPUPottsSolver::horizontalPotts8ADMM(uint32_t nHor, uint32_t colorOffsetHorVer) {
+    prepareHorizontalPottsProblems8ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
+            w_.GetDevicePtr(), z.GetDevicePtr(), weights.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+            lam1.GetDevicePtr(), lam2.GetDevicePtr(), lam3.GetDevicePtr(), mu, w, h ,nc);
+    CUDA_CHECK;
+    applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+            arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeC,
+            w, h, nc, nHor, colorOffsetHorVer);
+    CUDA_CHECK;
+    copyHorizontally <<<grid, block>>> (u.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffsetHorVer);
+    CUDA_CHECK;
+    clearHelperMemory();
+}
+
+void GPUPottsSolver::verticalPotts8ADMM(uint32_t nVer, uint32_t colorOffsetHorVer) {
+    prepareVerticalPottsProblems8ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
+            w_.GetDevicePtr(), z.GetDevicePtr(), weights.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+            lam1.GetDevicePtr(), lam4.GetDevicePtr(), lam5.GetDevicePtr(), mu, w, h ,nc);
+    CUDA_CHECK;
+    applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+            arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeC,
+            w, h, nc, nVer, colorOffsetHorVer);
+    CUDA_CHECK;
+    copyVertically <<<grid, block>>> (v.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffsetHorVer);
+    CUDA_CHECK;
+    clearHelperMemory();
+}
+
+void GPUPottsSolver::diagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffsetDiags) {
+    prepareDiagonalPottsProblems8ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
+            w_.GetDevicePtr(), z.GetDevicePtr(), weights.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+            lam2.GetDevicePtr(), lam4.GetDevicePtr(), lam6.GetDevicePtr(), mu, w, h ,nc);
+    CUDA_CHECK;
+    applyDiagonalPottsSolverKernel<<<gridDiagonal, blockDiagonal>>> (w_.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+            arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeD,
+            w, h, nc, nDiags,colorOffsetDiags);
+    CUDA_CHECK;
+    copyDiagonallyUpper <<<grid, block>>> (w_.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
+            w, h, nc, colorOffsetDiags, nDiags);
+    CUDA_CHECK;
+    copyDiagonallyLower <<<grid, block>>> (w_.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
+            w, h, nc, colorOffsetDiags, nDiags);
+    CUDA_CHECK;
+    clearHelperMemory();
+}
+
+void GPUPottsSolver::antidiagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffsetDiags) {
+    prepareAntidiagonalPottsProblems8ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
+            w_.GetDevicePtr(), z.GetDevicePtr(), weights.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+            lam3.GetDevicePtr(), lam5.GetDevicePtr(), lam6.GetDevicePtr(), mu, w, h ,nc);
+    CUDA_CHECK;
+    applyAntiDiagonalPottsSolverKernel<<<gridDiagonal, blockDiagonal>>> (z.GetDevicePtr(), weightsPrime.GetDevicePtr(),
+            arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeD,
+            w, h, nc, nDiags, colorOffsetDiags);
+    CUDA_CHECK;
+    copyAntiDiagonallyUpper <<<grid, block>>> (z.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
+            w, h, nc, colorOffsetDiags, nDiags);
+    CUDA_CHECK;
+    copyAntiDiagonallyLower <<<grid, block>>> (z.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
+            w, h, nc, colorOffsetDiags, nDiags);
+    CUDA_CHECK;
+    clearHelperMemory();
+}
+
 void GPUPottsSolver::solvePottsProblem8ADMM() {
     if (0 == fNorm) {
         return;
@@ -211,7 +279,7 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
     uint32_t nDiags = min(h, w);
     uint32_t colorOffsetDiags = (min(h, w)+1)*(w+h-1);
 
-    ImageRGB testImage(w, h);
+//    ImageRGB testImage(w, h);
 
     float omegaC = sqrt(2.0) - 1.0;
     float omegaD = 1.0 - sqrt(2.0)/2.0;
@@ -224,60 +292,17 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
         updateWeightsPrimeKernel <<<grid, block>>> (weightsPrime.GetDevicePtr(), weights.GetDevicePtr(), w, h, mu, 6);
         CUDA_CHECK;
 
-        // Horizontal
-        prepareHorizontalPottsProblems8ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
-                w_.GetDevicePtr(), z.GetDevicePtr(), weights.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                lam1.GetDevicePtr(), lam2.GetDevicePtr(), lam3.GetDevicePtr(), mu, w, h ,nc);
-        CUDA_CHECK;
-        applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeC,
-                w, h, nc, nHor, colorOffsetHorVer);
-        CUDA_CHECK;
-        clearHelperMemory();
+        horizontalPotts8ADMM(nHor, colorOffsetHorVer);
 
+        diagonalPotts8ADMM(nDiags, colorOffsetDiags);
 
-        // Diagonal
-        prepareDiagonalPottsProblems8ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
-                w_.GetDevicePtr(), z.GetDevicePtr(), weights.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                lam2.GetDevicePtr(), lam4.GetDevicePtr(), lam6.GetDevicePtr(), mu, w, h ,nc);
-        CUDA_CHECK;
-        applyDiagonalPottsSolverKernel<<<gridDiagonal, blockDiagonal>>> (w_.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeD,
-                w, h, nc, nDiags,colorOffsetDiags);
-        CUDA_CHECK;
-        clearHelperMemory();
+        verticalPotts8ADMM(nVer, colorOffsetHorVer);
 
+        antidiagonalPotts8ADMM(nDiags, colorOffsetDiags);
 
-
-        // Vertical
-        prepareVerticalPottsProblems8ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
-                w_.GetDevicePtr(), z.GetDevicePtr(), weights.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                lam1.GetDevicePtr(), lam4.GetDevicePtr(), lam5.GetDevicePtr(), mu, w, h ,nc);
-        CUDA_CHECK;
-        applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeC,
-                w, h, nc, nVer, colorOffsetHorVer);
-        CUDA_CHECK;
-        clearHelperMemory();
-
-
-
-        // Antidiagonal
-        prepareAntidiagonalPottsProblems8ADMM <<<grid, block>>> (d_inputImage.GetDevicePtr(), u.GetDevicePtr(), v.GetDevicePtr(),
-                w_.GetDevicePtr(), z.GetDevicePtr(), weights.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                lam3.GetDevicePtr(), lam5.GetDevicePtr(), lam6.GetDevicePtr(), mu, w, h ,nc);
-        CUDA_CHECK;
-        applyAntiDiagonalPottsSolverKernel<<<gridDiagonal, blockDiagonal>>> (z.GetDevicePtr(), weightsPrime.GetDevicePtr(),
-                arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeD,
-                w, h, nc, nDiags, colorOffsetDiags);
-        CUDA_CHECK;
-        clearHelperMemory();
-
-//        testImage.SetRawData(w_.DownloadData());
+//        testImage.SetRawData(z.DownloadData());
 //        testImage.Show("Test Image", 100+w, 100);
 //        cv::waitKey(0);
-
-
 
         updateLagrangeMultiplierKernel8ADMM <<<grid,block>>> (u.GetDevicePtr(), v.GetDevicePtr(), w_.GetDevicePtr(), z.GetDevicePtr(),
                 lam1.GetDevicePtr(), lam2.GetDevicePtr(), lam3.GetDevicePtr(),

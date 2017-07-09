@@ -64,6 +64,16 @@ private:
 
     void clearHelperMemory();
 
+    void horizontalPotts4ADMM(uint32_t nHor, uint32_t colorOffset);
+    void horizontalPotts8ADMM(uint32_t nHor, uint32_t colorOffsetHorVer);
+
+    void verticalPotts4ADMM(uint32_t nVer, uint32_t colorOffset);
+    void verticalPotts8ADMM(uint32_t nVer, uint32_t colorOffsetHorVer);
+
+    void diagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffsetDiags);
+
+    void antidiagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffsetDiags);
+
 public:
     GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc);
 
