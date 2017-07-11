@@ -18,6 +18,7 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
     error = std::numeric_limits<float>::infinity();
     stopTol = 1e-5;
     fNorm = computeFNorm(inputImage);
+    chunkSize = 10;
 
     d_inputImage.CreateBuffer(h*w*nc);
     d_inputImage.UploadData(inputImage);
@@ -64,12 +65,12 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
     block = dim3(32, 32, 1); // 32*32 = 1024 threads
     // ensure enough blocks to cover w * h elements (round up)
     grid = dim3((w + block.x - 1) / block.x, (h + block.y - 1) / block.y, nc);
-    blockHorizontal = dim3(1024, 1, 1);
-    gridHorizontal = dim3((h + blockHorizontal.x - 1) / blockHorizontal.x, 1, 1);
-    blockVertical = dim3(1024, 1, 1);
-    gridVertical = dim3((w + blockVertical.x - 1) / blockVertical.x, 1, 1);//dim3((w + blockVertical.x - 1) / blockVertical.x, 1, 1);
-    blockDiagonal = dim3(1024, 1, 1);
-    gridDiagonal = dim3((h + w + blockDiagonal.x - 1) / blockDiagonal.x, 1, 1);
+    blockHorizontal = dim3(128, 8, 1);
+    gridHorizontal = dim3((h + blockHorizontal.x - 1) / blockHorizontal.x, (ceil(((double)w / (double)chunkSize)) + blockHorizontal.y - 1) / blockHorizontal.y, 1);
+    blockVertical = dim3(128, 8, 1);
+    gridVertical = dim3((w + blockVertical.x - 1) / blockVertical.x, (ceil(((double)h / (double)chunkSize)) + blockHorizontal.y - 1) / blockHorizontal.y, 1);//dim3((w + blockVertical.x - 1) / blockVertical.x, 1, 1);
+    blockDiagonal = dim3(128, 8, 1);
+    gridDiagonal = dim3((h + w + blockDiagonal.x - 1) / blockDiagonal.x, (ceil(((double)w / (double)chunkSize)) + blockDiagonal.y - 1) / blockDiagonal.y, 1);
 
 //    uint32_t largerDimension = max(h, w);
 //    gridSwap = dim3((largerDimension + block.x - 1), (largerDimension + block.y - 1), nc);
@@ -134,7 +135,7 @@ void GPUPottsSolver::horizontalPotts4ADMM(uint32_t nHor, uint32_t colorOffset) {
     CUDA_CHECK;
     applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(),
             arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime,
-            w, h, nc, nHor, colorOffset);
+            w, h, nc, nHor, colorOffset, chunkSize);
     CUDA_CHECK;
     copyHorizontally <<<grid, block>>> (u.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffset);
     CUDA_CHECK;
@@ -147,7 +148,7 @@ void GPUPottsSolver::verticalPotts4ADMM(uint32_t nVer, uint32_t colorOffset) {
     CUDA_CHECK;
     applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(),
             arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime,
-            w, h, nc, nVer, colorOffset);
+            w, h, nc, nVer, colorOffset, chunkSize);
     CUDA_CHECK;
     copyVertically <<<grid, block>>> (v.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffset);
     CUDA_CHECK;
@@ -163,14 +164,16 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
     uint32_t nHor = w;
     uint32_t nVer = h;
     uint32_t colorOffset = (w+1)*(h+1);
+    
+    float stopThreshold = stopTol * fNorm * (1.0/chunkSize);
 
-//    ImageRGB testImage(w, h);
+    ImageRGB testImage(w, h);
 
     setWeightsKernel <<<grid, block>>> (weights.GetDevicePtr(), w, h);
 
     gammaPrime = 2 * gamma;
 
-    while (error >= stopTol * fNorm) {
+    while (error >= stopThreshold) {
 
         updateWeightsPrimeKernel <<<grid, block>>> (weightsPrime.GetDevicePtr(), weights.GetDevicePtr(), w, h, mu, 1);
         CUDA_CHECK;
@@ -179,10 +182,9 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
 
         verticalPotts4ADMM(nVer, colorOffset);
 
-//        testImage.SetRawData(u.DownloadData());
+//        testImage.SetRawData(v.DownloadData());
 //        testImage.Show("Test Image", 100+w, 100);
 //        cv::waitKey(0);
-
 
         updateLagrangeMultiplierKernel4ADMM <<<grid,block>>> (u.GetDevicePtr(), v.GetDevicePtr(), lam1.GetDevicePtr(),
                 temp.GetDevicePtr(), mu, w, h, nc);
@@ -196,7 +198,7 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
 
         mu = mu * muStep;
 
-        if(iteration > 30)
+        if(iteration > 28)
             break;
     }
 
@@ -209,7 +211,7 @@ void GPUPottsSolver::horizontalPotts8ADMM(uint32_t nHor, uint32_t colorOffsetHor
     CUDA_CHECK;
     applyHorizontalPottsSolverKernel<<<gridHorizontal, blockHorizontal>>> (u.GetDevicePtr(), weightsPrime.GetDevicePtr(),
             arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeC,
-            w, h, nc, nHor, colorOffsetHorVer);
+            w, h, nc, nHor, colorOffsetHorVer, chunkSize);
     CUDA_CHECK;
     copyHorizontally <<<grid, block>>> (u.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffsetHorVer);
     CUDA_CHECK;
@@ -223,7 +225,7 @@ void GPUPottsSolver::verticalPotts8ADMM(uint32_t nVer, uint32_t colorOffsetHorVe
     CUDA_CHECK;
     applyVerticalPottsSolverKernel<<<gridVertical, blockVertical>>> (v.GetDevicePtr(), weightsPrime.GetDevicePtr(),
             arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeC,
-            w, h, nc, nVer, colorOffsetHorVer);
+            w, h, nc, nVer, colorOffsetHorVer, chunkSize);
     CUDA_CHECK;
     copyVertically <<<grid, block>>> (v.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffsetHorVer);
     CUDA_CHECK;
@@ -237,7 +239,7 @@ void GPUPottsSolver::diagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffsetDia
     CUDA_CHECK;
     applyDiagonalPottsSolverKernel<<<gridDiagonal, blockDiagonal>>> (w_.GetDevicePtr(), weightsPrime.GetDevicePtr(),
             arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeD,
-            w, h, nc, nDiags,colorOffsetDiags);
+            w, h, nc, nDiags,colorOffsetDiags, chunkSize);
     CUDA_CHECK;
     copyDiagonallyUpper <<<grid, block>>> (w_.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
             w, h, nc, colorOffsetDiags, nDiags);
@@ -255,7 +257,7 @@ void GPUPottsSolver::antidiagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffse
     CUDA_CHECK;
     applyAntiDiagonalPottsSolverKernel<<<gridDiagonal, blockDiagonal>>> (z.GetDevicePtr(), weightsPrime.GetDevicePtr(),
             arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeD,
-            w, h, nc, nDiags, colorOffsetDiags);
+            w, h, nc, nDiags, colorOffsetDiags, chunkSize);
     CUDA_CHECK;
     copyAntiDiagonallyUpper <<<grid, block>>> (z.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
             w, h, nc, colorOffsetDiags, nDiags);
@@ -272,6 +274,8 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
     }
     uint32_t iteration = 0;
 
+    float stopThreshold = stopTol * fNorm * (1.0/chunkSize);
+
     uint32_t nHor = w;
     uint32_t nVer = h;
     uint32_t colorOffsetHorVer = (w+1)*(h+1);
@@ -279,7 +283,7 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
     uint32_t nDiags = min(h, w);
     uint32_t colorOffsetDiags = (min(h, w)+1)*(w+h-1);
 
-//    ImageRGB testImage(w, h);
+    ImageRGB testImage(w, h);
 
     float omegaC = sqrt(2.0) - 1.0;
     float omegaD = 1.0 - sqrt(2.0)/2.0;
@@ -288,7 +292,7 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
 
     setWeightsKernel <<<grid, block>>> (weights.GetDevicePtr(), w, h);
 
-    while (error >= stopTol * fNorm) {
+    while (error >= stopThreshold) {
         updateWeightsPrimeKernel <<<grid, block>>> (weightsPrime.GetDevicePtr(), weights.GetDevicePtr(), w, h, mu, 6);
         CUDA_CHECK;
 
@@ -300,7 +304,7 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
 
         antidiagonalPotts8ADMM(nDiags, colorOffsetDiags);
 
-//        testImage.SetRawData(z.DownloadData());
+//        testImage.SetRawData(w_.DownloadData());
 //        testImage.Show("Test Image", 100+w, 100);
 //        cv::waitKey(0);
 

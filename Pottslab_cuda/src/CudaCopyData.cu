@@ -44,9 +44,21 @@ __host__ __device__ void copyDataBackHorizontally(float* arrayToUpdate, uint32_t
 
     uint32_t r = arrJ[(col + y*n)*2+1];
     uint32_t l = arrJ[(col + y*n)*2];
+//    if(r == l) {
+//        printf("r == l at row %i col % i\n", row, col);
+////        l--;
+//    }
+
+//    if(row == 30){
+//        printf("col: %i r: %i l: %i\n", col, r, l);
+//    }
 
     float wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
-    arrayToUpdate[col + row*width + c*width*height] = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]) / wTemp;
+    float lala = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]);
+//    if(row == 30) {
+//        printf("value: %f wTemp: %f Division: %f\n", lala, wTemp, lala/wTemp);
+//    }
+    arrayToUpdate[col + row*width + c*width*height] = lala / wTemp;
 }
 
 
@@ -74,9 +86,21 @@ __host__ __device__ void copyDataBackVertically(float* arrayToUpdate, uint32_t* 
 
     uint32_t r = arrJ[(row + y*n)*2+1];
     uint32_t l = arrJ[(row + y*n)*2];
+//    if(r == l) {
+//        printf("r == l at row %i col % i\n", row, col);
+////        l--;
+//    }
+
+//    if(col == 155){
+//        printf("row: %i r: %i l: %i\n", row, r, l);
+//    }
 
     float wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
-    arrayToUpdate[col + row*width + c*width*height] = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]) / wTemp;
+    float lala = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]);
+//    if(col == 155) {
+//        printf("row: %i value: %f wTemp: %f Division: %f\n", row, lala, wTemp, lala/wTemp);
+//    }
+    arrayToUpdate[col + row*width + c*width*height] = lala / wTemp;
 }
 
 
@@ -106,6 +130,11 @@ __host__ __device__ void copyDataBackDiagonallyUpper(float* arrayToUpdate, uint3
 
     uint32_t r = arrJ[(row + y*n)*2+1];
     uint32_t l = arrJ[(row + y*n)*2];
+
+    if(r == l) {
+        printf("diag  upper r == l at row %i col % i\n", row, col);
+//        l--;
+    }
 
     float wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
     arrayToUpdate[row + col + row*width + c*width*height] = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]) / wTemp;
@@ -139,6 +168,15 @@ __host__ __device__ void copyDataBackDiagonallyLower(float* arrayToUpdate, uint3
     uint32_t r = arrJ[(col + y*n)*2+1];
     uint32_t l = arrJ[(col + y*n)*2];
 
+    if(row == 120) {
+        printf("row: %i col: %i r: %i l: %i\n", row, col, r, l);
+    }
+
+    if(r == l) {
+        printf("diag lower r == l at row %i col % i\n", row, col);
+//        l--;
+    }
+
     float wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
     arrayToUpdate[col + row*width + col*width + c*width*height] = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]) / wTemp;
 }
@@ -171,6 +209,11 @@ __host__ __device__ void copyDataBackAntiDiagonallyUpper(float* arrayToUpdate, u
     uint32_t r = arrJ[(row + y*n)*2+1];
     uint32_t l = arrJ[(row + y*n)*2];
 
+    if(r == l) {
+        printf("antidiag upper r == l at row %i col % i\n", row, col);
+//        l--;
+    }
+
     float wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
     arrayToUpdate[width-1-(col+row) + row*width + c*width*height] = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]) / wTemp;
 }
@@ -202,6 +245,11 @@ __host__ __device__ void copyDataBackAntiDiagonallyLower(float* arrayToUpdate, u
 
     uint32_t r = arrJ[(col + y*n)*2+1];
     uint32_t l = arrJ[(col + y*n)*2];
+
+    if(r == l) {
+        printf("antidiag lower r == l at row %i col % i\n", row, col);
+//        l--;
+    }
 
     float wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
     arrayToUpdate[width-1-col + (col+row)*width + c*width*height] = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]) / wTemp;

@@ -19,6 +19,7 @@ private:
     float error;
     float stopTol;
     float fNorm;
+    uint32_t chunkSize;
 
     uint32_t h;
     uint32_t w;
