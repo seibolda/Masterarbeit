@@ -19,18 +19,25 @@ int main(int argc, char **argv) {
     uint32_t width = 0;
     uint32_t numberChannels = 0;
     double gamma = 0;
+    uint32_t chunkSize = 0;
     Timer timer;
 
     string image_path = "";
     bool ret = getParam("i", image_path, argc, argv);
     if (!ret) cerr << "ERROR: no image specified" << endl;
-    if (argc <= 1) { cout << "Usage: " << argv[0] << " -i <image> -gamma <gamma_value>" << endl; return 1; }
+    if (argc <= 2) { cout << "Usage: " << argv[0] << " -i <image> -gamma <gamma_value> -chunksize <value>" << endl; return 1; }
 
     string gamma_str = "";
     ret = getParam("gamma", gamma_str, argc, argv);
     if (!ret) cerr << "ERROR: no gamma value given" << endl;
-    if (argc <= 1) { cout << "Usage: " << argv[0] << " -i <image> -gamma <gamma_value>" << endl; return 1; }
+    if (argc <= 2) { cout << "Usage: " << argv[0] << " -i <image> -gamma <gamma_value> -chunksize <value>" << endl; return 1; }
     gamma = ::atof(gamma_str.c_str());
+
+    string chunksize_str = "";
+    ret = getParam("chunksize", chunksize_str, argc, argv);
+    if (!ret) cerr << "ERROR: no chunksize value given" << endl;
+    if (argc <= 2) { cout << "Usage: " << argv[0] << " -i <image> -gamma <gamma_value> -chunksize <value>" << endl; return 1; }
+    chunkSize = ::atoi(chunksize_str.c_str());
 
     ImageRGB inputImage(image_path, true);
     height = inputImage.GetHeight();
@@ -39,13 +46,12 @@ int main(int argc, char **argv) {
     ImageRGB outputImage(width, height);
 
 
-    GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, 2, width, height, numberChannels);
+
+    GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, 2, width, height, numberChannels, chunkSize);
 
     timer.start();
-    gpuPottsSolver.solvePottsProblem8ADMM();
+    gpuPottsSolver.solvePottsProblem4ADMM();
     timer.end();
-//    gpuPottsSolver.doPottsOnCPU();
-//    gpuPottsSolver.swapTest();
 
     gpuPottsSolver.downloadOuputImage(outputImage);
 

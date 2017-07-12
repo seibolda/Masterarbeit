@@ -3,22 +3,22 @@
 
 #include "GPUPottsSolver.h"
 #include "CudaKernels.cu"
-#include "CudaKernels4ADMM.cu"
-#include "CudaKernels8ADMM.cu"
+#include "potts/CudaKernels4ADMM.cu"
+#include "potts/CudaKernels8ADMM.cu"
 
-GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc) {
+GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc, uint32_t newChunkSize) {
     h = newH;
     w = newW;
     nc = newNc;
 
     gamma = newGamma;
     gammaPrime = 0;
-    mu = gamma * 1e-2;
+    mu = gamma * 1e-1;
     muStep = newMuStep;
     error = std::numeric_limits<float>::infinity();
-    stopTol = 1e-5;
+    stopTol = 1e-2;
     fNorm = computeFNorm(inputImage);
-    chunkSize = 10;
+    chunkSize = newChunkSize;
 
     d_inputImage.CreateBuffer(h*w*nc);
     d_inputImage.UploadData(inputImage);
@@ -71,9 +71,6 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
     gridVertical = dim3((w + blockVertical.x - 1) / blockVertical.x, (ceil(((double)h / (double)chunkSize)) + blockHorizontal.y - 1) / blockHorizontal.y, 1);//dim3((w + blockVertical.x - 1) / blockVertical.x, 1, 1);
     blockDiagonal = dim3(128, 8, 1);
     gridDiagonal = dim3((h + w + blockDiagonal.x - 1) / blockDiagonal.x, (ceil(((double)w / (double)chunkSize)) + blockDiagonal.y - 1) / blockDiagonal.y, 1);
-
-//    uint32_t largerDimension = max(h, w);
-//    gridSwap = dim3((largerDimension + block.x - 1), (largerDimension + block.y - 1), nc);
 
     CUBLAS_CHECK(cublasCreate(&cublasHandle));
 }
@@ -137,7 +134,7 @@ void GPUPottsSolver::horizontalPotts4ADMM(uint32_t nHor, uint32_t colorOffset) {
             arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime,
             w, h, nc, nHor, colorOffset, chunkSize);
     CUDA_CHECK;
-    copyHorizontally <<<grid, block>>> (u.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffset);
+    copyBackHorizontally <<<grid, block>>> (u.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffset);
     CUDA_CHECK;
     clearHelperMemory();
 }
@@ -150,7 +147,7 @@ void GPUPottsSolver::verticalPotts4ADMM(uint32_t nVer, uint32_t colorOffset) {
             arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrime,
             w, h, nc, nVer, colorOffset, chunkSize);
     CUDA_CHECK;
-    copyVertically <<<grid, block>>> (v.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffset);
+    copyBackVertically <<<grid, block>>> (v.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffset);
     CUDA_CHECK;
     clearHelperMemory();
 }
@@ -167,7 +164,7 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
     
     float stopThreshold = stopTol * fNorm * (1.0/chunkSize);
 
-    ImageRGB testImage(w, h);
+//    ImageRGB testImage(w, h);
 
     setWeightsKernel <<<grid, block>>> (weights.GetDevicePtr(), w, h);
 
@@ -198,7 +195,9 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
 
         mu = mu * muStep;
 
-        if(iteration > 28)
+        chunkSize++;
+
+        if(iteration > 30)
             break;
     }
 
@@ -213,7 +212,7 @@ void GPUPottsSolver::horizontalPotts8ADMM(uint32_t nHor, uint32_t colorOffsetHor
             arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeC,
             w, h, nc, nHor, colorOffsetHorVer, chunkSize);
     CUDA_CHECK;
-    copyHorizontally <<<grid, block>>> (u.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffsetHorVer);
+    copyBackHorizontally <<<grid, block>>> (u.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffsetHorVer);
     CUDA_CHECK;
     clearHelperMemory();
 }
@@ -227,7 +226,7 @@ void GPUPottsSolver::verticalPotts8ADMM(uint32_t nVer, uint32_t colorOffsetHorVe
             arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeC,
             w, h, nc, nVer, colorOffsetHorVer, chunkSize);
     CUDA_CHECK;
-    copyVertically <<<grid, block>>> (v.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffsetHorVer);
+    copyBackVertically <<<grid, block>>> (v.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(), w, h, nc, colorOffsetHorVer);
     CUDA_CHECK;
     clearHelperMemory();
 }
@@ -241,10 +240,10 @@ void GPUPottsSolver::diagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffsetDia
             arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeD,
             w, h, nc, nDiags,colorOffsetDiags, chunkSize);
     CUDA_CHECK;
-    copyDiagonallyUpper <<<grid, block>>> (w_.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
+    copyBackDiagonallyUpper <<<grid, block>>> (w_.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
             w, h, nc, colorOffsetDiags, nDiags);
     CUDA_CHECK;
-    copyDiagonallyLower <<<grid, block>>> (w_.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
+    copyBackDiagonallyLower <<<grid, block>>> (w_.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
             w, h, nc, colorOffsetDiags, nDiags);
     CUDA_CHECK;
     clearHelperMemory();
@@ -259,10 +258,10 @@ void GPUPottsSolver::antidiagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffse
             arrJ.GetDevicePtr(), arrP.GetDevicePtr(), m.GetDevicePtr(), s.GetDevicePtr(), wPotts.GetDevicePtr(), gammaPrimeD,
             w, h, nc, nDiags, colorOffsetDiags, chunkSize);
     CUDA_CHECK;
-    copyAntiDiagonallyUpper <<<grid, block>>> (z.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
+    copyBackAntiDiagonallyUpper <<<grid, block>>> (z.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
             w, h, nc, colorOffsetDiags, nDiags);
     CUDA_CHECK;
-    copyAntiDiagonallyLower <<<grid, block>>> (z.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
+    copyBackAntiDiagonallyLower <<<grid, block>>> (z.GetDevicePtr(), arrJ.GetDevicePtr(), m.GetDevicePtr(), wPotts.GetDevicePtr(),
             w, h, nc, colorOffsetDiags, nDiags);
     CUDA_CHECK;
     clearHelperMemory();
@@ -283,7 +282,7 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
     uint32_t nDiags = min(h, w);
     uint32_t colorOffsetDiags = (min(h, w)+1)*(w+h-1);
 
-    ImageRGB testImage(w, h);
+//    ImageRGB testImage(w, h);
 
     float omegaC = sqrt(2.0) - 1.0;
     float omegaD = 1.0 - sqrt(2.0)/2.0;
@@ -304,7 +303,7 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
 
         antidiagonalPotts8ADMM(nDiags, colorOffsetDiags);
 
-//        testImage.SetRawData(w_.DownloadData());
+//        testImage.SetRawData(u.DownloadData());
 //        testImage.Show("Test Image", 100+w, 100);
 //        cv::waitKey(0);
 
@@ -320,6 +319,8 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
 
         mu = mu * muStep;
 
+        chunkSize++;
+
         if(iteration > 30)
             break;
     }
@@ -334,129 +335,5 @@ void GPUPottsSolver::downloadOutputMatlab(float *outputImage) {
     CUDA_CHECK;
 }
 
-/*void GPUPottsSolver::swapTest() {
-    ImageRGB rotatedImage(h, w);
-    ImageRGB image(w,h);
-
-    swapImageCCWKernel <<<grid, block>>> (v.GetDevicePtr(), tempV.GetDevicePtr(), w, h, nc);
-    CUDA_CHECK;
-    swapImageCWKernel <<<grid, block>>> (tempV.GetDevicePtr(), v.GetDevicePtr(), h, w, nc);
-    CUDA_CHECK;
-
-    image.SetRawData(v.DownloadData());
-    image.Show("image", 100, 100);
-    rotatedImage.SetRawData(tempV.DownloadData());
-    rotatedImage.Show("Rotated Image", 100+w, 100);
-    cv::waitKey(0);
-}*/
-
-void GPUPottsSolver::doPottsOnCPU() {
-    uint32_t problemSize = 255;
-    uint32_t height1 = 1;
-    uint32_t numCh = 1;
-    float* weights1 = new float[problemSize*height1];
-    float* weightsPrime1 = new float[problemSize*height1];
-    float* m1 = new float[(problemSize+1)*(height1+1)*numCh];
-    float* s1 = new float[(problemSize+1)*(height1+1)];
-    float* w1 = new float[(problemSize+1)*(height1+1)];
-    float* arrP1 = new float[problemSize*height1];
-    uint32_t* arrJ1 = new uint32_t[problemSize*height1];
-
-    float* testData = new float[255];
-    int* inputToVisualize = new int[255];
-    int* result = new int[255];
-
-    float* u = new float[problemSize*height1*numCh];
-    float* v = new float[problemSize*height1*numCh];
-    float* lam = new float[problemSize*height1*numCh];
-    float* temp = new float[problemSize*height1*numCh];
-
-    for(uint32_t x = 0; x < problemSize; x++) {
-        for(uint32_t y = 0; y < height1; y++) {
-
-            uint32_t weightsIndex = x + problemSize*y;
-            weights1[weightsIndex] = 1;
-            weightsPrime1[weightsIndex] = 0;
-            arrJ1[weightsIndex] = 0;
-            arrP1[weightsIndex] = 0;
-
-            for(uint32_t c = 0; c < numCh; c++) {
-                uint32_t index = x + problemSize*y + c*height1*problemSize;
-                u[index] = 0;
-                v[index] = 0;
-                lam[index] = 0;
-                temp[index] = 0;
-            }
-        }
-    }
-    for(uint32_t i = 0; i < (problemSize+1)*(height1+1); i++) {
-
-        s1[i] = 0;
-        w1[i] = 0;
-
-        for(uint32_t c = 0; c < numCh; c++) {
-            m1[i*c] = 0;
-        }
-    }
-    for(uint32_t i = 0; i < problemSize*height1*numCh; ++i) {
-        testData[i] = i/255.0;//(rand() % 255) / 255.0;
-        inputToVisualize[i] = floor(testData[i] * 255);
-
-    }
-
-
-
-    // prepare horizontal
-    for(uint32_t x = 0; x < problemSize; x++) {
-        for(uint32_t y = 0; y < height1; y++) {
-            for(uint32_t c = 0; c < numCh; c++) {
-                uint32_t weightsIndex = x + problemSize*y;
-                uint32_t index = x + problemSize*y + c*problemSize*height1;
-                u[index] = (testData[index] * weights1[weightsIndex] + v[index] * mu - lam[index]) / weightsPrime1[weightsIndex];
-                v[index] = (testData[index] * weights1[weightsIndex] + u[index] * mu + lam[index]) / weightsPrime1[weightsIndex];
-            }
-        }
-    }
-
-
-
-
-    /*showHistogram256("testData", inputToVisualize, 10,10);
-
-    for(uint32_t i = 0; i < (problemSize+1)*(height1+1)*numCh; i++) {
-        m1[i] = 0;
-    }
-    w1[0] = 0;
-    s1[0] = 0;
-
-    for(uint32_t i = 0; i < 1; ++i) {
-        doPottsStep(testData, weights1, arrJ1, arrP1, m1, s1, w1, gamma*2, 0, problemSize, height1, numCh);
-    }
-
-    for(uint32_t i = 0; i < 256; ++i) {
-        result[i] = floor(testData[i] * 255);
-        if(i >= problemSize*numCh)
-            result[i] = 0;
-        printf("Pos: %d data: %f res: %d\n", i, testData[i], result[i]);
-    }
-
-    showHistogram256("result", result, 10,200);*/
-
-    delete[] weights1;
-    delete[] weightsPrime1;
-    delete[] m1;
-    delete[] w1;
-    delete[] s1;
-    delete[] arrJ1;
-    delete[] arrP1;
-    delete[] testData;
-    delete[] inputToVisualize;
-    delete[] result;
-
-    delete[] u;
-    delete[] v;
-    delete[] lam;
-    delete[] temp;
-}
 
 #endif

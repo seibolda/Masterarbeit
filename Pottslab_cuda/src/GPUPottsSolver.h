@@ -76,7 +76,7 @@ private:
     void antidiagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffsetDiags);
 
 public:
-    GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc);
+    GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc, uint32_t newChunkSize);
 
     ~GPUPottsSolver();
 
@@ -87,10 +87,6 @@ public:
     void downloadOuputImage(ImageRGB outputImage);
 
     void downloadOutputMatlab(float* outputImage);
-
-    void doPottsOnCPU();
-
-//    void swapTest();
 
 };
 
