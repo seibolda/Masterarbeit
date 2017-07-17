@@ -20,6 +20,7 @@ private:
     float stopTol;
     float fNorm;
     uint32_t chunkSize;
+    uint32_t chunkSizeOffset;
 
     uint32_t h;
     uint32_t w;
@@ -30,7 +31,6 @@ private:
     CudaBuffer<float> v;
     CudaBuffer<float> w_;
     CudaBuffer<float> z;
-    CudaBuffer<float> tempV;
     CudaBuffer<float> lam1;
     CudaBuffer<float> lam2;
     CudaBuffer<float> lam3;
@@ -84,7 +84,7 @@ public:
 
     void solvePottsProblem8ADMM();
 
-    void downloadOuputImage(ImageRGB outputImage);
+    void downloadOutputImage(ImageRGB outputImage);
 
     void downloadOutputMatlab(float* outputImage);
 

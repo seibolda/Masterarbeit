@@ -50,10 +50,10 @@ int main(int argc, char **argv) {
     GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, 2, width, height, numberChannels, chunkSize);
 
     timer.start();
-    gpuPottsSolver.solvePottsProblem4ADMM();
+    gpuPottsSolver.solvePottsProblem8ADMM();
     timer.end();
 
-    gpuPottsSolver.downloadOuputImage(outputImage);
+    gpuPottsSolver.downloadOutputImage(outputImage);
 
 
     cout << "Duration: " << timer.get() * 1000 << "ms" << endl;
