@@ -120,6 +120,12 @@ void GPUPottsSolver::clearHelperMemory() {
     wPotts.SetBytewiseValue(0);
 }
 
+void GPUPottsSolver::updateChunkSizeOffset() {
+//    chunkSize++;
+    chunkSizeOffset = (rand() % (chunkSize-1)) + 2;
+    chunkSizeOffset = chunkSizeOffset % chunkSize;
+}
+
 float GPUPottsSolver::updateError() {
     float errorCublas = 0;
     CUBLAS_CHECK(cublasSnrm2(cublasHandle, h*w*nc, temp.GetDevicePtr(), 1, &errorCublas));
@@ -196,8 +202,7 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
 
         mu = mu * muStep;
 
-//        chunkSize++;
-//        chunkSizeOffset = rand() % chunkSize;
+        updateChunkSizeOffset();
 
         if(iteration > 25)
             break;
@@ -321,8 +326,7 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
 
         mu = mu * muStep;
 
-//        chunkSize++;
-//        chunkSizeOffset = rand() % chunkSize;
+        updateChunkSizeOffset();
 
         if(iteration > 25)
             break;

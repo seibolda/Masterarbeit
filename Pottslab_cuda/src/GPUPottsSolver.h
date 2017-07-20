@@ -65,6 +65,8 @@ private:
 
     void clearHelperMemory();
 
+    void updateChunkSizeOffset();
+
     void horizontalPotts4ADMM(uint32_t nHor, uint32_t colorOffset);
     void horizontalPotts8ADMM(uint32_t nHor, uint32_t colorOffsetHorVer);
 

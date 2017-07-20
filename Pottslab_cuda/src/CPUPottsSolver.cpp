@@ -108,6 +108,12 @@ float CPUPottsSolver::updateError() {
     return error;
 }
 
+void CPUPottsSolver::updateChunkSizeOffset() {
+//    chunkSize++;
+    chunkSizeOffset = (rand() % (chunkSize-1)) + 2;
+    chunkSizeOffset = chunkSizeOffset % chunkSize;
+}
+
 void CPUPottsSolver::clearHelperMemory() {
     memset(arrJ, 0, (dimension*2+1) * sizeof(uint32_t));
     memset(arrP, 0, dimension * sizeof(float));
@@ -232,8 +238,7 @@ void CPUPottsSolver::solvePottsProblem4ADMM() {
 
         mu = mu * muStep;
 
-//        chunkSize++;
-//        chunkSizeOffset = rand() % chunkSize;
+        updateChunkSizeOffset();
 
         if(iteration > 25)
             break;
@@ -471,8 +476,7 @@ void CPUPottsSolver::solvePottsProblem8ADMM() {
 
         mu = mu * muStep;
 
-//        chunkSize++;
-//        chunkSizeOffset = rand() % chunkSize;
+        updateChunkSizeOffset();
 
         if(iteration > 25)
             break;
