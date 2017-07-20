@@ -16,7 +16,7 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
     mu = gamma * 1e-2;
     muStep = newMuStep;
     error = std::numeric_limits<float>::infinity();
-    stopTol = 1e-3;
+    stopTol = 1e-10;
     fNorm = computeFNorm(inputImage);
     chunkSize = newChunkSize;
     chunkSizeOffset = 0;
@@ -122,9 +122,9 @@ void GPUPottsSolver::clearHelperMemory() {
 
 float GPUPottsSolver::updateError() {
     float errorCublas = 0;
-//    CUBLAS_CHECK(cublasSnrm2(cublasHandle, h*w*nc, temp.GetDevicePtr(), 1, &errorCublas));
-    CUBLAS_CHECK(cublasSasum(cublasHandle, h*w*nc, temp.GetDevicePtr(), 1, &errorCublas));
-    return errorCublas;
+    CUBLAS_CHECK(cublasSnrm2(cublasHandle, h*w*nc, temp.GetDevicePtr(), 1, &errorCublas));
+//    CUBLAS_CHECK(cublasSasum(cublasHandle, h*w*nc, temp.GetDevicePtr(), 1, &errorCublas));
+    return errorCublas*errorCublas;
 }
 
 void GPUPottsSolver::horizontalPotts4ADMM(uint32_t nHor, uint32_t colorOffset) {
@@ -197,7 +197,7 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
         mu = mu * muStep;
 
 //        chunkSize++;
-        chunkSizeOffset = rand() % chunkSize;
+//        chunkSizeOffset = rand() % chunkSize;
 
         if(iteration > 25)
             break;
@@ -305,7 +305,7 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
 
         antidiagonalPotts8ADMM(nDiags, colorOffsetDiags);
 
-//        testImage.SetRawData(w_.DownloadData());
+//        testImage.SetRawData(u.DownloadData());
 //        testImage.Show("Test Image", 100+w, 100);
 //        cv::waitKey(0);
 
@@ -322,7 +322,7 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
         mu = mu * muStep;
 
 //        chunkSize++;
-        chunkSizeOffset = rand() % chunkSize;
+//        chunkSizeOffset = rand() % chunkSize;
 
         if(iteration > 25)
             break;

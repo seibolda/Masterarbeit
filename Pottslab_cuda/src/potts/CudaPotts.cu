@@ -7,6 +7,20 @@
     #define __global__
 #endif
 
+#include <cstdint>
+#include <cmath>
+
+__host__ __device__ void setWeights(float* weights, uint32_t index) {
+    weights[index] = 1;
+}
+
+
+
+__host__ __device__ void updateWeightsPrime(float* weightsPrime, float* weights, float mu, float factor, uint32_t index) {
+    weightsPrime[index] = weights[index] + (factor * mu);
+}
+
+
 
 __host__ __device__ float normQuad(float* array, uint32_t position, uint32_t nc, uint32_t colorOffset) {
     float result = 0;
@@ -61,7 +75,7 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, uint32_t* arrJ, floa
     uint32_t r = upper;
     uint32_t l = arrJ[(r - 1 + y*n)*2];
 
-    while(r >  lower) {
+    while(r > lower-1) {
         for(uint32_t j = l; j < r; j++) {
             arrJ[(j + y*n)*2] = l;
             arrJ[(j + y*n)*2+1] = r;
@@ -75,5 +89,271 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, uint32_t* arrJ, floa
     }
 
 }
+
+
+
+__host__ __device__ void copyDataHorizontally(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t row, uint32_t width,
+                                              uint32_t height, uint32_t nc, uint32_t colorOffset) {
+    float wTemp = 0;
+    size_t idxBase = row*(width+1);
+    for(uint32_t j = 0; j < width; j++) {
+
+        wTemp = weights[j + row*width];
+
+        for(uint32_t c = 0; c < nc; c++) {
+            m[j + 1 + idxBase + c*colorOffset] = arrayToUpdate[j + row*width + c*width*height] * wTemp + m[j + idxBase + c*colorOffset];
+        }
+
+        float nQ = normQuad(arrayToUpdate, j+row*width, nc, width*height);
+        s[j + 1 + idxBase] = nQ * wTemp + s[j + idxBase];
+        w[j + 1 + idxBase] = w[j + idxBase] + wTemp;
+    }
+}
+
+__host__ __device__ void copyDataBackHorizontally(float* arrayToUpdate, uint32_t* arrJ, float* m, float* w, uint32_t row, uint32_t col,
+                                                  uint32_t c, uint32_t width, uint32_t height, uint32_t colorOffset) {
+
+    uint32_t y = row;
+    uint32_t n = width;
+
+    uint32_t r = arrJ[(col + y*n)*2+1];
+    uint32_t l = arrJ[(col + y*n)*2];
+
+    float wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
+    arrayToUpdate[col + row*width + c*width*height] = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]) / wTemp;
+}
+
+
+
+__host__ __device__ void copyDataVertically(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t col, uint32_t width, uint32_t height, uint32_t nc, uint32_t colorOffset) {
+    float wTemp = 0;
+    size_t idxBase = col*(height+1);
+    for(uint32_t j = 0; j < height; j++) {
+
+        wTemp = weights[col + j*width];
+        for(uint32_t c = 0; c < nc; c++) {
+            m[j + 1 + idxBase + c*colorOffset] = arrayToUpdate[col + j*width + c*width*height] * wTemp + m[j + idxBase + c*colorOffset];
+        }
+        float nQ = normQuad(arrayToUpdate, col + j*width, nc, width*height);
+        s[j + 1 + idxBase] = nQ * wTemp + s[j + idxBase];
+        w[j + 1 + idxBase] = w[j + idxBase] + wTemp;
+    }
+}
+
+__host__ __device__ void copyDataBackVertically(float* arrayToUpdate, uint32_t* arrJ, float* m, float* w, uint32_t row, uint32_t col,
+                                                uint32_t c, uint32_t width, uint32_t height, uint32_t colorOffset) {
+
+    uint32_t y = col;
+    uint32_t n = height;
+
+    uint32_t r = arrJ[(row + y*n)*2+1];
+    uint32_t l = arrJ[(row + y*n)*2];
+
+    float wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
+    arrayToUpdate[col + row*width + c*width*height] = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]) / wTemp;
+}
+
+
+
+__host__ __device__ void copyDataDiagonallyUpper(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t col, uint32_t width,
+                                                 uint32_t height, uint32_t nc, uint32_t colorOffset, uint32_t smallerDimension, uint32_t sDiag) {
+
+    size_t idxBase = col*(smallerDimension+1);
+
+    float wTemp = 0;
+    for(uint32_t j = 0; j < sDiag; j++) {
+
+        wTemp = weights[j+col + j*width];
+        for(uint8_t c = 0; c < nc; c++) {
+            m[j + 1 + idxBase + c*colorOffset] = arrayToUpdate[j+col + j*width + c*width*height] * wTemp + m[j + idxBase + c*colorOffset];
+        }
+        float nQ = normQuad(arrayToUpdate, j+col + j*width, nc, width*height);
+        s[j + 1 + idxBase] = nQ * wTemp + s[j + idxBase];
+        w[j + 1 + idxBase] = w[j + idxBase] + wTemp;
+    }
+}
+
+__host__ __device__ void copyDataBackDiagonallyUpper(float* arrayToUpdate, uint32_t* arrJ, float* m, float* w, uint32_t row, uint32_t col,
+                                                     uint32_t c, uint32_t width, uint32_t height, uint32_t colorOffset, uint32_t n) {
+
+    uint32_t y = col;
+
+    uint32_t r = arrJ[(row + y*n)*2+1];
+    uint32_t l = arrJ[(row + y*n)*2];
+
+    float wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
+    arrayToUpdate[row + col + row*width + c*width*height] = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]) / wTemp;
+}
+
+
+
+__host__ __device__ void copyDataDiagonallyLower(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t row, uint32_t width,
+                                                 uint32_t height, uint32_t nc, uint32_t colorOffset, uint32_t smallerDimension, uint32_t sDiag) {
+
+    size_t idxBase = (row-1)*(smallerDimension+1) + width*(smallerDimension+1);
+
+    float wTemp = 0;
+    for(uint32_t j = 0; j < sDiag; j++) {
+
+        wTemp = weights[j + row*width + j*width];
+        for(uint8_t c = 0; c < nc; c++) {
+            m[j + 1 + idxBase + c*colorOffset] = arrayToUpdate[j + row*width + j*width + c*width*height] * wTemp + m[j + idxBase + c*colorOffset];
+        }
+        float nQ = normQuad(arrayToUpdate, j + row*width + j*width, nc, width*height);
+        s[j + 1 + idxBase] = nQ * wTemp + s[j + idxBase];
+        w[j + 1 + idxBase] = w[j + idxBase] + wTemp;
+    }
+}
+
+__host__ __device__ void copyDataBackDiagonallyLower(float* arrayToUpdate, uint32_t* arrJ, float* m, float* w, uint32_t row, uint32_t col,
+                                                     uint32_t c, uint32_t width, uint32_t height, uint32_t colorOffset, uint32_t n) {
+
+    uint32_t y = row+width-1;
+
+    uint32_t r = arrJ[(col + y*n)*2+1];
+    uint32_t l = arrJ[(col + y*n)*2];
+
+    float wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
+    arrayToUpdate[col + row*width + col*width + c*width*height] = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]) / wTemp;
+}
+
+
+
+__host__ __device__ void copyDataAntiDiagonallyUpper(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t col, uint32_t width,
+                                                     uint32_t height, uint32_t nc, uint32_t colorOffset, uint32_t smallerDimension, uint32_t sDiag) {
+
+    size_t idxBase = col*(smallerDimension+1);
+
+    float wTemp = 0;
+    for(uint32_t j = 0; j < sDiag; j++) {
+
+        wTemp = weights[width-1-(col+j) + j*width];
+        for(uint8_t c = 0; c < nc; c++) {
+            m[j + 1 + idxBase + c*colorOffset] = arrayToUpdate[width-1-(col+j) + j*width + c*width*height] * wTemp + m[j + idxBase + c*colorOffset];
+        }
+        float nQ = normQuad(arrayToUpdate, width-1-(col+j) + j*width, nc, width*height);
+        s[j + 1 + idxBase] = nQ * wTemp + s[j + idxBase];
+        w[j + 1 + idxBase] = w[j + idxBase] + wTemp;
+    }
+}
+
+__host__ __device__ void copyDataBackAntiDiagonallyUpper(float* arrayToUpdate, uint32_t* arrJ, float* m, float* w, uint32_t row, uint32_t col,
+                                                         uint32_t c, uint32_t width, uint32_t height, uint32_t colorOffset, uint32_t n) {
+
+    uint32_t y = col;
+
+    uint32_t r = arrJ[(row + y*n)*2+1];
+    uint32_t l = arrJ[(row + y*n)*2];
+
+    float wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
+    arrayToUpdate[width-1-(col+row) + row*width + c*width*height] = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]) / wTemp;
+}
+
+
+
+__host__ __device__ void copyDataAntiDiagonallyLower(float* arrayToUpdate, float* weights, float* m, float* s, float* w, uint32_t row, uint32_t width,
+                                                     uint32_t height, uint32_t nc, uint32_t colorOffset, uint32_t smallerDimension, uint32_t sDiag) {
+
+    size_t idxBase = (row-1)*(smallerDimension+1) + width*(smallerDimension+1);
+
+    float wTemp = 0;
+    for(uint32_t j = 0; j < sDiag; j++) {
+
+        wTemp = weights[width-1-j + (j+row)*width];
+        for(uint8_t c = 0; c < nc; c++) {
+            m[j + 1 + idxBase + c*colorOffset] = arrayToUpdate[width-1-j + (j+row)*width + c*width*height] * wTemp + m[j + idxBase + c*colorOffset];
+        }
+        float nQ = normQuad(arrayToUpdate, width-1-j + (j+row)*width, nc, width*height);
+        s[j + 1 + idxBase] = nQ * wTemp + s[j + idxBase];
+        w[j + 1 + idxBase] = w[j + idxBase] + wTemp;
+    }
+}
+
+__host__ __device__ void copyDataBackAntiDiagonallyLower(float* arrayToUpdate, uint32_t* arrJ, float* m, float* w, uint32_t row, uint32_t col,
+                                                         uint32_t c, uint32_t width, uint32_t height, uint32_t colorOffset, uint32_t n) {
+
+    uint32_t y = row+width-1;
+
+    uint32_t r = arrJ[(col + y*n)*2+1];
+    uint32_t l = arrJ[(col + y*n)*2];
+
+    float wTemp = w[r + y*(n+1)] - w[l + y*(n+1)];
+    arrayToUpdate[width-1-col + (col+row)*width + c*width*height] = (m[r + y*(n+1) + c*colorOffset] - m[l + y*(n+1) + c*colorOffset]) / wTemp;
+}
+
+
+
+__host__ __device__ void applyHorizontalPottsSolver(float* u, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* wPotts,float gamma,
+                                                    uint32_t w, uint32_t h, uint32_t nc, uint32_t nPotts, uint32_t colorOffset, uint32_t chunkSize,
+                                                    uint32_t chunkSizeOffset, uint32_t row, uint32_t col) {
+    uint32_t y = row;
+    uint32_t length = w;
+    uint32_t upper = min(chunkSize*(col+1) - chunkSizeOffset, length);
+    uint32_t lower = min(chunkSize*col + 1, chunkSize*col + 1 - chunkSizeOffset);
+    copyDataHorizontally(u, weights, m, s, wPotts, row, w, h, nc, colorOffset);
+    doPottsStep(u, arrJ, arrP, m, s, wPotts, gamma, row, col, w, h, nc, y, nPotts, length, colorOffset, upper, lower, chunkSize, chunkSizeOffset);
+}
+
+
+
+__host__ __device__ void applyVerticalPottsSolver(float* v, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* wPotts,float gamma,
+                                                  uint32_t w, uint32_t h, uint32_t nc, uint32_t nPotts, uint32_t colorOffset, uint32_t chunkSize,
+                                                  uint32_t chunkSizeOffset, uint32_t row, uint32_t col) {
+    uint32_t y = col;
+    uint32_t length = h;
+    uint32_t upper = min(chunkSize*(row+1) - chunkSizeOffset, length);
+    uint32_t lower = min(chunkSize*row + 1, chunkSize*row + 1 - chunkSizeOffset);
+    copyDataVertically(v, weights, m, s, wPotts, col, w, h, nc, colorOffset);
+    doPottsStep(v, arrJ, arrP, m, s, wPotts, gamma, 0, col, w, h, nc, y, nPotts, length, colorOffset, upper, lower, chunkSize, chunkSizeOffset);
+}
+
+
+
+__host__ __device__ void applyDiagonalUpperPottsSolver(float* w_, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* wPotts, float gamma,
+                                                       uint32_t w, uint32_t h, uint32_t nc, uint32_t nPotts, uint32_t colorOffset, uint32_t chunkSize,
+                                                       uint32_t chunkSizeOffset, uint32_t row, uint32_t col) {
+    uint32_t length = min(h, w - col);
+    uint32_t upper = min(chunkSize*(row+1) - chunkSizeOffset, length);
+    uint32_t lower = min(chunkSize*row + 1, chunkSize*row + 1 - chunkSizeOffset);
+    copyDataDiagonallyUpper(w_, weights, m, s, wPotts, col, w, h, nc, colorOffset, nPotts, length);
+    doPottsStep(w_, arrJ, arrP, m, s, wPotts, gamma, 0, col, w, h, nc, col, nPotts, length, colorOffset, upper, lower, chunkSize, chunkSizeOffset);
+}
+
+
+
+__host__ __device__ void applyDiagonalLowerPottsSolver(float* w_, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* wPotts, float gamma,
+                                                       uint32_t w, uint32_t h, uint32_t nc, uint32_t nPotts, uint32_t colorOffset, uint32_t chunkSize,
+                                                       uint32_t chunkSizeOffset, uint32_t row, uint32_t col) {
+    uint32_t length = min(h - (col - w), w);
+    uint32_t upper = min(chunkSize*(row+1) - chunkSizeOffset, length);
+    uint32_t lower = min(chunkSize*row + 1, chunkSize*row + 1 - chunkSizeOffset);
+    copyDataDiagonallyLower(w_, weights, m, s, wPotts, col-w, w, h, nc, colorOffset, nPotts, length);
+    doPottsStep(w_, arrJ, arrP, m, s, wPotts, gamma, col-w, 0, w, h, nc, col-1, nPotts, length, colorOffset, upper, lower, chunkSize, chunkSizeOffset);
+}
+
+
+
+__host__ __device__ void applyAntiDiagonalUpperPottsSolver(float* z, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* wPotts, float gamma,
+                                                      uint32_t w, uint32_t h, uint32_t nc, uint32_t nPotts, uint32_t colorOffset, uint32_t chunkSize,
+                                                      uint32_t chunkSizeOffset, uint32_t row, uint32_t col) {
+    uint32_t length = min(h, w - col);
+    uint32_t upper = min(chunkSize*(row+1) - chunkSizeOffset, length);
+    uint32_t lower = min(chunkSize*row + 1, chunkSize*row + 1 - chunkSizeOffset);
+    copyDataAntiDiagonallyUpper(z, weights, m, s, wPotts, col, w, h, nc, colorOffset, nPotts, length);
+    doPottsStep(z, arrJ, arrP, m, s, wPotts, gamma, 0, col, w, h, nc, col, nPotts, length, colorOffset, upper, lower, chunkSize, chunkSizeOffset);
+}
+
+
+
+__host__ __device__ void applyAntiDiagonalLowerPottsSolver(float* z, float* weights, uint32_t* arrJ, float* arrP, float* m, float* s, float* wPotts, float gamma,
+                                                           uint32_t w, uint32_t h, uint32_t nc, uint32_t nPotts, uint32_t colorOffset, uint32_t chunkSize,
+                                                           uint32_t chunkSizeOffset, uint32_t row, uint32_t col) {
+    uint32_t length = min(h - (col - w), w);
+    uint32_t upper = min(chunkSize*(row+1) - chunkSizeOffset, length);
+    uint32_t lower = min(chunkSize*row + 1, chunkSize*row + 1 - chunkSizeOffset);
+    copyDataAntiDiagonallyLower(z, weights, m, s, wPotts, col-w, w, h, nc, colorOffset, nPotts, length);
+    doPottsStep(z, arrJ, arrP, m, s, wPotts, gamma, col-w, 0, w, h, nc, col-1, nPotts, length, colorOffset, upper, lower, chunkSize, chunkSizeOffset);
+}
+
 
 #endif

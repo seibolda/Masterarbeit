@@ -9,7 +9,6 @@
 
 #include <cstdint>
 #include "potts/CudaPotts.cu"
-#include "potts/CudaCopyData.cu"
 
 __global__ void setWeightsKernel(float* weights, uint32_t w, uint32_t h) {
     uint32_t x = threadIdx.x + blockDim.x * blockIdx.x;
@@ -17,7 +16,7 @@ __global__ void setWeightsKernel(float* weights, uint32_t w, uint32_t h) {
 
     if(x < w && y < h) {
         uint32_t index = x + w * y;
-        weights[index] = 1;
+        setWeights(weights, index);
     }
 }
 
@@ -27,7 +26,7 @@ __global__ void updateWeightsPrimeKernel(float* weightsPrime, float* weights, ui
 
     if(x < w && y < h) {
         uint32_t index = x + w * y;
-        weightsPrime[index] = weights[index] + (factor * mu);
+        updateWeightsPrime(weightsPrime, weights, mu, factor, index);
     }
 }
 
@@ -39,12 +38,7 @@ __global__ void applyHorizontalPottsSolverKernel(float* u, float* weights, uint3
 
 
     if(row < h) {
-        uint32_t y = row;
-        uint32_t length = w;
-        uint32_t upper = min(chunkSize*(col+1) - chunkSizeOffset, length);
-        uint32_t lower = min(chunkSize*col + 1, chunkSize*col + 1 - chunkSizeOffset);
-        copyDataHorizontally(u, weights, m, s, wPotts, row, w, h, nc, colorOffset);
-        doPottsStep(u, arrJ, arrP, m, s, wPotts, gamma, row, col, w, h, nc, y, nPotts, length, colorOffset, upper, lower, chunkSize, chunkSizeOffset);
+        applyHorizontalPottsSolver(u, weights, arrJ, arrP, m, s, wPotts, gamma, w, h, nc, nPotts, colorOffset, chunkSize, chunkSizeOffset, row, col);
     }
 }
 
@@ -65,12 +59,7 @@ __global__ void applyVerticalPottsSolverKernel(float* v, float* weights, uint32_
     uint32_t row = threadIdx.y + blockDim.y * blockIdx.y;
 
     if(col < w) {
-        uint32_t y = col;
-        uint32_t length = h;
-        uint32_t upper = min(chunkSize*(row+1) - chunkSizeOffset, length);
-        uint32_t lower = min(chunkSize*row + 1, chunkSize*row + 1 - chunkSizeOffset);
-        copyDataVertically(v, weights, m, s, wPotts, col, w, h, nc, colorOffset);
-        doPottsStep(v, arrJ, arrP, m, s, wPotts, gamma, 0, col, w, h, nc, y, nPotts, length, colorOffset, upper, lower, chunkSize, chunkSizeOffset);
+        applyVerticalPottsSolver(v, weights, arrJ, arrP, m, s, wPotts, gamma, w, h, nc, nPotts, colorOffset, chunkSize, chunkSizeOffset, row, col);
     }
 }
 
@@ -91,17 +80,9 @@ __global__ void applyDiagonalPottsSolverKernel(float* w_, float* weights, uint32
     uint32_t row = threadIdx.y + blockDim.y * blockIdx.y;
 
     if(col < w) {
-        uint32_t length = min(h, w - col);
-        uint32_t upper = min(chunkSize*(row+1) - chunkSizeOffset, length);
-        uint32_t lower = min(chunkSize*row + 1, chunkSize*row + 1 - chunkSizeOffset);
-        copyDataDiagonallyUpper(w_, weights, m, s, wPotts, col, w, h, nc, colorOffset, nPotts, length);
-        doPottsStep(w_, arrJ, arrP, m, s, wPotts, gamma, 0, col, w, h, nc, col, nPotts, length, colorOffset, upper, lower, chunkSize, chunkSizeOffset);
+        applyDiagonalUpperPottsSolver(w_, weights, arrJ, arrP, m, s, wPotts, gamma, w, h, nc, nPotts, colorOffset, chunkSize, chunkSizeOffset, row, col);
     } else if (col > w && col < w+h) {
-        uint32_t length = min(h - (col - w), w);
-        uint32_t upper = min(chunkSize*(row+1) - chunkSizeOffset, length);
-        uint32_t lower = min(chunkSize*row + 1, chunkSize*row + 1 - chunkSizeOffset);
-        copyDataDiagonallyLower(w_, weights, m, s, wPotts, col-w, w, h, nc, colorOffset, nPotts, length);
-        doPottsStep(w_, arrJ, arrP, m, s, wPotts, gamma, col-w, 0, w, h, nc, col-1, nPotts, length, colorOffset, upper, lower, chunkSize, chunkSizeOffset);
+        applyDiagonalLowerPottsSolver(w_, weights, arrJ, arrP, m, s, wPotts, gamma, w, h, nc, nPotts, colorOffset, chunkSize, chunkSizeOffset, row, col);
     }
 }
 
@@ -140,17 +121,9 @@ __global__ void applyAntiDiagonalPottsSolverKernel(float* z, float* weights, uin
     uint32_t row = threadIdx.y + blockDim.y * blockIdx.y;
 
     if(col < w) {
-        uint32_t length = min(h, w - col);
-        uint32_t upper = min(chunkSize*(row+1) - chunkSizeOffset, length);
-        uint32_t lower = min(chunkSize*row + 1, chunkSize*row + 1 - chunkSizeOffset);
-        copyDataAntiDiagonallyUpper(z, weights, m, s, wPotts, col, w, h, nc, colorOffset, nPotts, length);
-        doPottsStep(z, arrJ, arrP, m, s, wPotts, gamma, 0, col, w, h, nc, col, nPotts, length, colorOffset, upper, lower, chunkSize, chunkSizeOffset);
+        applyAntiDiagonalUpperPottsSolver(z, weights, arrJ, arrP, m, s, wPotts, gamma, w, h, nc, nPotts, colorOffset, chunkSize, chunkSizeOffset, row, col);
     } else if (col > w && col < w+h) {
-        uint32_t length = min(h - (col - w), w);
-        uint32_t upper = min(chunkSize*(row+1) - chunkSizeOffset, length);
-        uint32_t lower = min(chunkSize*row + 1, chunkSize*row + 1 - chunkSizeOffset);
-        copyDataAntiDiagonallyLower(z, weights, m, s, wPotts, col-w, w, h, nc, colorOffset, nPotts, length);
-        doPottsStep(z, arrJ, arrP, m, s, wPotts, gamma, col-w, 0, w, h, nc, col-1, nPotts, length, colorOffset, upper, lower, chunkSize, chunkSizeOffset);
+        applyAntiDiagonalLowerPottsSolver(z, weights, arrJ, arrP, m, s, wPotts, gamma, w, h, nc, nPotts, colorOffset, chunkSize, chunkSizeOffset, row, col);
     }
 }
 

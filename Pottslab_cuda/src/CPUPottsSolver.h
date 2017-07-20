@@ -1,6 +1,11 @@
 #ifndef POTTSLAB_CUDA_CPUPOTTSSOLVER_H
 #define POTTSLAB_CUDA_CPUPOTTSSOLVER_H
 
+#include <cstdint>
+#include <cstdlib>
+#include "Image.h"
+#include "potts/CudaPotts.cu"
+
 class CPUPottsSolver {
 private:
     float gamma;
@@ -13,11 +18,13 @@ private:
     float stopTol;
     float fNorm;
     uint32_t chunkSize;
+    uint32_t chunkSizeOffset;
 
     uint32_t h;
     uint32_t w;
     uint32_t nc;
 
+    float* in;
     float* u;
     float* v;
     float* w_;
@@ -37,6 +44,8 @@ private:
     float* m;
     float* s;
     float* wPotts;
+
+    size_t dimension;
 
     float computeFNorm(float* inputImage);
 

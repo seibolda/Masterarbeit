@@ -4,6 +4,8 @@
 
 #include "GPUPottsSolver.h"
 #include "GPUPottsSolver.cu"
+#include "CPUPottsSolver.h"
+#include "CPUPottsSolver.cpp"
 
 
 using namespace std;
@@ -49,11 +51,15 @@ int main(int argc, char **argv) {
 
     GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, 2, width, height, numberChannels, chunkSize);
 
+    CPUPottsSolver cpuPottsSolver(inputImage.GetRawDataPtr(), gamma, 2, width, height, numberChannels, chunkSize);
+
     timer.start();
     gpuPottsSolver.solvePottsProblem8ADMM();
+//    cpuPottsSolver.solvePottsProblem8ADMM();
     timer.end();
 
     gpuPottsSolver.downloadOutputImage(outputImage);
+//    cpuPottsSolver.downloadOutputImage(outputImage);
 
 
     cout << "Duration: " << timer.get() * 1000 << "ms" << endl;
