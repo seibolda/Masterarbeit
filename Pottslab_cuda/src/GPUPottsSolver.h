@@ -2,29 +2,30 @@
 #define _GPU_POTTS_SOLVER_H_
 
 #include <cmath>
+#include <cstdlib>
 #include "util/CudaBuffer.h"
 #include "Image.h"
 #include "cublas_v2.h"
 #include "cuda_runtime.h"
-#include <cstdlib>
+#include "PottsSolver.h"
 
-class GPUPottsSolver {
+class GPUPottsSolver : public PottsSolver{
 private:
-    float gamma;
-    float gammaPrime;
-    float gammaPrimeC;
-    float gammaPrimeD;
-    float mu;
-    float muStep;
-    float error;
-    float stopTol;
-    float fNorm;
-    uint32_t chunkSize;
-    uint32_t chunkSizeOffset;
-
-    uint32_t h;
-    uint32_t w;
-    uint32_t nc;
+//    float gamma;
+//    float gammaPrime;
+//    float gammaPrimeC;
+//    float gammaPrimeD;
+//    float mu;
+//    float muStep;
+//    float error;
+//    float stopTol;
+//    float fNorm;
+//    uint32_t chunkSize;
+//    uint32_t chunkSizeOffset;
+//
+//    uint32_t h;
+//    uint32_t w;
+//    uint32_t nc;
 
     CudaBuffer<float> d_inputImage;
     CudaBuffer<float> u;
@@ -59,13 +60,13 @@ private:
 
     cublasHandle_t cublasHandle;
 
-    float computeFNorm(float* inputImage);
+//    float computeFNorm(float* inputImage);
 
     float updateError();
 
     void clearHelperMemory();
 
-    void updateChunkSizeOffset();
+//    void updateChunkSizeOffset();
 
     void horizontalPotts4ADMM(uint32_t nHor, uint32_t colorOffset);
     void horizontalPotts8ADMM(uint32_t nHor, uint32_t colorOffsetHorVer);
@@ -78,7 +79,9 @@ private:
     void antidiagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffsetDiags);
 
 public:
-    GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc, uint32_t newChunkSize);
+    GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc,
+                   uint32_t newChunkSize, float newStopTol, uint8_t newChunkOffsetChangeType,
+                   uint32_t newMaxIterations, bool isVerbose, bool isQuadraticError);
 
     ~GPUPottsSolver();
 

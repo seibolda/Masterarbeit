@@ -6,6 +6,7 @@
 #include "GPUPottsSolver.cu"
 #include "CPUPottsSolver.h"
 #include "CPUPottsSolver.cpp"
+#include "PottsSolver.h"
 
 
 using namespace std;
@@ -21,25 +22,72 @@ int main(int argc, char **argv) {
     uint32_t width = 0;
     uint32_t numberChannels = 0;
     double gamma = 0;
+    double muStep = 2;
     uint32_t chunkSize = 0;
+    float stopTol = 1e-10;
+    uint8_t chunkOffsetChangeType = 0;
+    uint32_t maxIterations = 25;
+    bool verbose = false;
+    bool quadraticError = true;
+    bool isotropic = true;
+    bool isGPU = false;
+
     Timer timer;
+
+    string usageString = " -i <image> -gamma <float_value> (-chunksize <uint_value> -stoptol <float_value>";
+    usageString += " -chunkoffsetchangetype [0|1|2] -maxiterations <uint_value> -v [true|false]";
+    usageString += " -nonquadraticerror [true|false] -isotropic [true|false] -gpu [true|false])";
 
     string image_path = "";
     bool ret = getParam("i", image_path, argc, argv);
     if (!ret) cerr << "ERROR: no image specified" << endl;
-    if (argc <= 2) { cout << "Usage: " << argv[0] << " -i <image> -gamma <gamma_value> -chunksize <value>" << endl; return 1; }
+    if (argc < 5) { cout << "Usage: " << argv[0] << usageString << endl; return 1; }
 
     string gamma_str = "";
     ret = getParam("gamma", gamma_str, argc, argv);
     if (!ret) cerr << "ERROR: no gamma value given" << endl;
-    if (argc <= 2) { cout << "Usage: " << argv[0] << " -i <image> -gamma <gamma_value> -chunksize <value>" << endl; return 1; }
+    if (argc < 5) { cout << "Usage: " << argv[0] << usageString << endl; return 1; }
     gamma = ::atof(gamma_str.c_str());
 
     string chunksize_str = "";
     ret = getParam("chunksize", chunksize_str, argc, argv);
-    if (!ret) cerr << "ERROR: no chunksize value given" << endl;
-    if (argc <= 2) { cout << "Usage: " << argv[0] << " -i <image> -gamma <gamma_value> -chunksize <value>" << endl; return 1; }
-    chunkSize = ::atoi(chunksize_str.c_str());
+    if(ret) {
+        chunkSize = ::atoi(chunksize_str.c_str());
+    }
+
+    string stopTol_str = "";
+    ret = getParam("stoptol", stopTol_str, argc, argv);
+    if(ret) {
+        stopTol = ::atof(stopTol_str.c_str());
+    }
+
+    string chunkOffsetChangeType_str = "";
+    ret = getParam("chunkoffsetchangetype", chunkOffsetChangeType_str, argc, argv);
+    if(ret) {
+        chunkOffsetChangeType = ::atoi(chunkOffsetChangeType_str.c_str());
+    }
+
+    string maxIterations_str = "";
+    ret = getParam("maxiterations", maxIterations_str, argc, argv);
+    if(ret) {
+        maxIterations = ::atoi(maxIterations_str.c_str());
+    }
+
+    string verbose_str = "";
+    ret = getParam("v", verbose_str, argc, argv);
+    verbose = ret;
+
+    string quadraticError_str = "";
+    ret = getParam("nonquadraticerror", quadraticError_str, argc, argv);
+    quadraticError = !ret;
+
+    string isotropic_str = "";
+    ret = getParam("isotropic", isotropic_str, argc, argv);
+    isotropic = ret;
+
+    string isgpu_str = "";
+    ret = getParam("gpu", isgpu_str, argc, argv);
+    isGPU = ret;
 
     ImageRGB inputImage(image_path, true);
     height = inputImage.GetHeight();
@@ -49,24 +97,50 @@ int main(int argc, char **argv) {
 
 
 
-    GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, 2, width, height, numberChannels, chunkSize);
 
-    CPUPottsSolver cpuPottsSolver(inputImage.GetRawDataPtr(), gamma, 2, width, height, numberChannels, chunkSize);
+    if(isGPU) {
+        GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, muStep, width, height, numberChannels, chunkSize,
+                                      stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError);
 
-    timer.start();
-//    gpuPottsSolver.solvePottsProblem8ADMM();
-    cpuPottsSolver.solvePottsProblem8ADMM();
-    timer.end();
+        timer.start();
+        if(isotropic) {
+            gpuPottsSolver.solvePottsProblem8ADMM();
+        } else {
+            gpuPottsSolver.solvePottsProblem4ADMM();
+        }
+        timer.end();
 
-//    gpuPottsSolver.downloadOutputImage(outputImage);
-    cpuPottsSolver.downloadOutputImage(outputImage);
+        gpuPottsSolver.downloadOutputImage(outputImage);
+        inputImage.Show("Input Image", 100, 100);
+        outputImage.Show("Output Image", 100+width, 100);
+        cv::waitKey(0);
+    } else {
+        CPUPottsSolver cpuPottsSolver(inputImage.GetRawDataPtr(), gamma, muStep, width, height, numberChannels, chunkSize,
+                                      stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError);
+
+        timer.start();
+        if(isotropic) {
+            cpuPottsSolver.solvePottsProblem8ADMM();
+        } else {
+            cpuPottsSolver.solvePottsProblem4ADMM();
+        }
+        timer.end();
+
+        cpuPottsSolver.downloadOutputImage(outputImage);
+
+        inputImage.Show("Input Image", 100, 100);
+        outputImage.Show("Output Image", 100+width, 100);
+        cv::waitKey(0);
+    }
 
 
-    cout << "Duration: " << timer.get() * 1000 << "ms" << endl;
 
-    inputImage.Show("Input Image", 100, 100);
-    outputImage.Show("Output Image", 100+width, 100);
-    cv::waitKey(0);
+
+
+    if(verbose) {
+        cout << "Duration: " << timer.get() * 1000 << "ms" << endl;
+    }
+
     cvDestroyAllWindows();
 
     return 0;

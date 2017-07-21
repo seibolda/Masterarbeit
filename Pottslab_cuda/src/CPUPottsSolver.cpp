@@ -1,22 +1,10 @@
 #include "CPUPottsSolver.h"
 
 CPUPottsSolver::CPUPottsSolver(float *inputImage, float newGamma, float newMuStep, size_t newW, size_t newH,
-                               size_t newNc, uint32_t newChunkSize) {
-    h = newH;
-    w = newW;
-    nc = newNc;
-
-    gamma = newGamma;
-    gammaPrime = 0;
-    gammaPrimeC = 0;
-    gammaPrimeD = 0;
-    mu = gamma * 1e-2;
-    muStep = newMuStep;
-    error = std::numeric_limits<float>::infinity();
-    stopTol = 1e-10;
-    fNorm = computeFNorm(inputImage);
-    chunkSize = newChunkSize;
-    chunkSizeOffset = 0;
+                               size_t newNc, uint32_t newChunkSize, float newStopTol, uint8_t chunkOffsetChangeType,
+                               uint32_t newMaxIterations, bool isVerbose, bool isQuadraticError) :
+        PottsSolver(inputImage, newGamma, newMuStep, newW, newH, newNc, newChunkSize, newStopTol, chunkOffsetChangeType,
+                    newMaxIterations, isVerbose, isQuadraticError) {
 
     in = (float*)malloc(h*w*nc* sizeof(float));
     memcpy(in, inputImage, h*w*nc*sizeof(float));
@@ -47,8 +35,6 @@ CPUPottsSolver::CPUPottsSolver(float *inputImage, float newGamma, float newMuSte
     weightsPrime = (float*)malloc(h*w*sizeof(float));
     memset(weightsPrime, 0, h*w*sizeof(float));
 
-    uint32_t smallerDimension = min(h, w);
-    dimension = (smallerDimension+1)*(w+h-1);
     arrJ = (uint32_t*)malloc((dimension*2+1) * sizeof(uint32_t));
     memset(arrJ, 0, (dimension*2+1) * sizeof(uint32_t));
     arrP = (float*)malloc(dimension * sizeof(float));
@@ -84,34 +70,21 @@ CPUPottsSolver::~CPUPottsSolver() {
     delete wPotts;
 }
 
-float CPUPottsSolver::computeFNorm(float* inputImage) {
-    float fNorm = 0;
-    for(uint32_t x = 0; x < w; x++) {
-        for(uint32_t y = 0; y < h; y++) {
-            for(uint32_t c = 0; c < nc; c++) {
-                fNorm += pow(inputImage[x + y*w + c*w*h], 2);
-            }
-        }
-    }
-    return fNorm;
-}
-
 float CPUPottsSolver::updateError() {
     float error = 0;
     for(uint32_t row = 0; row < h; ++row) {
         for(uint32_t col = 0; col < w; ++col) {
             for(uint32_t c = 0; c < nc; ++c) {
-                error += abs(temp[col + row*w + h*w*c]) * abs(temp[col + row*w + h*w*c]);
+                if(quadraticError) {
+                    error += abs(temp[col + row*w + h*w*c]) * abs(temp[col + row*w + h*w*c]);
+                } else {
+                    error += abs(temp[col + row*w + h*w*c]);
+                }
+
             }
         }
     }
     return error;
-}
-
-void CPUPottsSolver::updateChunkSizeOffset() {
-//    chunkSize++;
-    chunkSizeOffset = (rand() % (chunkSize-1)) + 2;
-    chunkSizeOffset = chunkSizeOffset % chunkSize;
 }
 
 void CPUPottsSolver::clearHelperMemory() {
@@ -192,7 +165,7 @@ void CPUPottsSolver::solvePottsProblem4ADMM() {
     uint32_t nVer = h;
     uint32_t colorOffset = (w+1)*(h+1);
 
-    float stopThreshold = stopTol * fNorm/* * (1.0/chunkSize)*/;
+    float stopThreshold = stopTol * fNorm;
 
     ImageRGB testImage(w, h);
 
@@ -233,14 +206,18 @@ void CPUPottsSolver::solvePottsProblem4ADMM() {
 
 
         error = updateError();
-        printf("Iteration: %d error: %f\n", iteration, error);
+
+        if (verbose) {
+            printf("Iteration: %d error: %f\n", iteration, error);
+        }
+
         iteration++;
 
         mu = mu * muStep;
 
         updateChunkSizeOffset();
 
-        if(iteration > 25)
+        if(iteration > maxIterations)
             break;
     }
 }
@@ -414,7 +391,7 @@ void CPUPottsSolver::solvePottsProblem8ADMM() {
     }
     uint32_t iteration = 0;
 
-    float stopThreshold = stopTol * fNorm/* * (1.0/chunkSize)*/;
+    float stopThreshold = stopTol * fNorm;
 
     uint32_t nHor = w;
     uint32_t nVer = h;
@@ -471,14 +448,18 @@ void CPUPottsSolver::solvePottsProblem8ADMM() {
         }
 
         error = updateError();
-        printf("Iteration: %d error: %f\n", iteration, error);
+
+        if (verbose) {
+            printf("Iteration: %d error: %f\n", iteration, error);
+        }
+
         iteration++;
 
         mu = mu * muStep;
 
         updateChunkSizeOffset();
 
-        if(iteration > 25)
+        if(iteration > maxIterations)
             break;
     }
 }

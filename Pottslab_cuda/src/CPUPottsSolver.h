@@ -4,25 +4,11 @@
 #include <cstdint>
 #include <cstdlib>
 #include "Image.h"
+#include "PottsSolver.h"
 #include "potts/CudaPotts.cu"
 
-class CPUPottsSolver {
+class CPUPottsSolver: public PottsSolver {
 private:
-    float gamma;
-    float gammaPrime;
-    float gammaPrimeC;
-    float gammaPrimeD;
-    float mu;
-    float muStep;
-    float error;
-    float stopTol;
-    float fNorm;
-    uint32_t chunkSize;
-    uint32_t chunkSizeOffset;
-
-    uint32_t h;
-    uint32_t w;
-    uint32_t nc;
 
     float* in;
     float* u;
@@ -45,15 +31,9 @@ private:
     float* s;
     float* wPotts;
 
-    size_t dimension;
-
-    float computeFNorm(float* inputImage);
-
     float updateError();
 
     void clearHelperMemory();
-
-    void updateChunkSizeOffset();
 
     void horizontalPotts4ADMM(uint32_t nHor, uint32_t colorOffset);
     void horizontalPotts8ADMM(uint32_t nHor, uint32_t colorOffsetHorVer);
@@ -66,7 +46,9 @@ private:
     void antidiagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffsetDiags);
 
 public:
-    CPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc, uint32_t newChunkSize);
+    CPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc,
+                   uint32_t newChunkSize, float newStopTol, uint8_t chunkOffsetChangeType, uint32_t newMaxIterations,
+                   bool isVerbose, bool isQuadraticError);
 
     ~CPUPottsSolver();
 

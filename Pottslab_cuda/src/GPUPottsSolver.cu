@@ -6,20 +6,11 @@
 #include "potts/CudaKernels4ADMM.cu"
 #include "potts/CudaKernels8ADMM.cu"
 
-GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc, uint32_t newChunkSize) {
-    h = newH;
-    w = newW;
-    nc = newNc;
-
-    gamma = newGamma;
-    gammaPrime = 0;
-    mu = gamma * 1e-2;
-    muStep = newMuStep;
-    error = std::numeric_limits<float>::infinity();
-    stopTol = 1e-10;
-    fNorm = computeFNorm(inputImage);
-    chunkSize = newChunkSize;
-    chunkSizeOffset = 0;
+GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc,
+                               uint32_t newChunkSize, float newStopTol, uint8_t newChunkOffsetChangeType,
+                               uint32_t newMaxIterations, bool isVerbose, bool isQuadraticError) :
+        PottsSolver(inputImage, newGamma, newMuStep, newW, newH, newNc, newChunkSize, newStopTol, chunkOffsetChangeType,
+        newMaxIterations, isVerbose, isQuadraticError) {
 
     d_inputImage.CreateBuffer(h*w*nc);
     d_inputImage.UploadData(inputImage);
@@ -50,8 +41,6 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
     weightsPrime.CreateBuffer(w*h);
     weightsPrime.SetBytewiseValue(0);
 
-    uint32_t smallerDimension = min(h, w);
-    size_t dimension = (smallerDimension+1)*(w+h-1);
     arrJ.CreateBuffer(dimension*2+1);
     arrJ.SetBytewiseValue(0);
     arrP.CreateBuffer(dimension);
@@ -100,18 +89,6 @@ GPUPottsSolver::~GPUPottsSolver() {
     CUBLAS_CHECK(cublasDestroy(cublasHandle));
 }
 
-float GPUPottsSolver::computeFNorm(float* inputImage) {
-    float fNorm = 0;
-    for(uint32_t x = 0; x < w; x++) {
-        for(uint32_t y = 0; y < h; y++) {
-            for(uint32_t c = 0; c < nc; c++) {
-                fNorm += pow(inputImage[x + y*w + c*w*h], 2);
-            }
-        }
-    }
-    return fNorm;
-}
-
 void GPUPottsSolver::clearHelperMemory() {
     arrJ.SetBytewiseValue(0);
     arrP.SetBytewiseValue(0);
@@ -120,17 +97,16 @@ void GPUPottsSolver::clearHelperMemory() {
     wPotts.SetBytewiseValue(0);
 }
 
-void GPUPottsSolver::updateChunkSizeOffset() {
-//    chunkSize++;
-    chunkSizeOffset = (rand() % (chunkSize-1)) + 2;
-    chunkSizeOffset = chunkSizeOffset % chunkSize;
-}
-
 float GPUPottsSolver::updateError() {
     float errorCublas = 0;
-    CUBLAS_CHECK(cublasSnrm2(cublasHandle, h*w*nc, temp.GetDevicePtr(), 1, &errorCublas));
-//    CUBLAS_CHECK(cublasSasum(cublasHandle, h*w*nc, temp.GetDevicePtr(), 1, &errorCublas));
-    return errorCublas*errorCublas;
+    if(quadraticError) {
+        CUBLAS_CHECK(cublasSnrm2(cublasHandle, h*w*nc, temp.GetDevicePtr(), 1, &errorCublas));
+        errorCublas = errorCublas*errorCublas;
+    } else {
+        CUBLAS_CHECK(cublasSasum(cublasHandle, h*w*nc, temp.GetDevicePtr(), 1, &errorCublas));
+    }
+
+    return errorCublas;
 }
 
 void GPUPottsSolver::horizontalPotts4ADMM(uint32_t nHor, uint32_t colorOffset) {
@@ -169,7 +145,7 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
     uint32_t nVer = h;
     uint32_t colorOffset = (w+1)*(h+1);
 
-    float stopThreshold = stopTol * fNorm/* * (1.0/chunkSize)*/;
+    float stopThreshold = stopTol * fNorm;
 
     ImageRGB testImage(w, h);
 
@@ -197,7 +173,11 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
 
 
         error = updateError();
-        printf("Iteration: %d error: %f\n", iteration, error);
+
+        if (verbose) {
+            printf("Iteration: %d error: %f\n", iteration, error);
+        }
+
         iteration++;
 
         mu = mu * muStep;
@@ -280,7 +260,7 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
     }
     uint32_t iteration = 0;
 
-    float stopThreshold = stopTol * fNorm/* * (1.0/chunkSize)*/;
+    float stopThreshold = stopTol * fNorm;
 
     uint32_t nHor = w;
     uint32_t nVer = h;
@@ -321,7 +301,11 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
         CUDA_CHECK;
 
         error = updateError();
-        printf("Iteration: %d error: %f\n", iteration, error);
+
+        if (verbose) {
+            printf("Iteration: %d error: %f\n", iteration, error);
+        }
+
         iteration++;
 
         mu = mu * muStep;
