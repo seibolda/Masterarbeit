@@ -147,7 +147,7 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
 
     float stopThreshold = stopTol * fNorm;
 
-    ImageRGB testImage(w, h);
+//    ImageRGB testImage(w, h);
 
     setWeightsKernel <<<grid, block>>> (weights.GetDevicePtr(), w, h);
 
@@ -269,7 +269,7 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
     uint32_t nDiags = min(h, w);
     uint32_t colorOffsetDiags = (min(h, w)+1)*(w+h-1);
 
-    ImageRGB testImage(w, h);
+//    ImageRGB testImage(w, h);
 
     float omegaC = sqrt(2.0) - 1.0;
     float omegaD = 1.0 - sqrt(2.0)/2.0;
@@ -317,8 +317,12 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
     }
 }
 
-void GPUPottsSolver::downloadOutputImage(ImageRGB outputImage) {
-    outputImage.SetRawData(u.DownloadData());
+//void GPUPottsSolver::downloadOutputImage(ImageRGB outputImage) {
+//    outputImage.SetRawData(u.DownloadData());
+//}
+
+float* GPUPottsSolver::getResultPtr() {
+    return u.DownloadData();
 }
 
 void GPUPottsSolver::downloadOutputMatlab(float *outputImage) {

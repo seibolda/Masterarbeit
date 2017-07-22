@@ -3,10 +3,7 @@
 #include "Image.h"
 
 #include "GPUPottsSolver.h"
-#include "GPUPottsSolver.cu"
 #include "CPUPottsSolver.h"
-#include "CPUPottsSolver.cpp"
-#include "PottsSolver.h"
 
 
 using namespace std;
@@ -36,7 +33,7 @@ int main(int argc, char **argv) {
 
     string usageString = " -i <image> -gamma <float_value> (-chunksize <uint_value> -stoptol <float_value>";
     usageString += " -chunkoffsetchangetype [0|1|2] -maxiterations <uint_value> -v [true|false]";
-    usageString += " -nonquadraticerror [true|false] -isotropic [true|false] -gpu [true|false])";
+    usageString += " -nonquadraticerror [true|false] -unisotropic [true|false] -gpu [true|false])";
 
     string image_path = "";
     bool ret = getParam("i", image_path, argc, argv);
@@ -82,8 +79,8 @@ int main(int argc, char **argv) {
     quadraticError = !ret;
 
     string isotropic_str = "";
-    ret = getParam("isotropic", isotropic_str, argc, argv);
-    isotropic = ret;
+    ret = getParam("unisotropic", isotropic_str, argc, argv);
+    isotropic = !ret;
 
     string isgpu_str = "";
     ret = getParam("gpu", isgpu_str, argc, argv);
@@ -110,7 +107,7 @@ int main(int argc, char **argv) {
         }
         timer.end();
 
-        gpuPottsSolver.downloadOutputImage(outputImage);
+        outputImage.SetRawData(gpuPottsSolver.getResultPtr());
         inputImage.Show("Input Image", 100, 100);
         outputImage.Show("Output Image", 100+width, 100);
         cv::waitKey(0);
@@ -126,7 +123,7 @@ int main(int argc, char **argv) {
         }
         timer.end();
 
-        cpuPottsSolver.downloadOutputImage(outputImage);
+        outputImage.SetRawData(cpuPottsSolver.getResultPtr());
 
         inputImage.Show("Input Image", 100, 100);
         outputImage.Show("Output Image", 100+width, 100);

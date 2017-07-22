@@ -1,6 +1,8 @@
 #include "mex.h"
 
+#include "PottsSolver.h"
 #include "GPUPottsSolver.h"
+#include "CPUPottsSolver.h"
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     // input validation
@@ -26,9 +28,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     float* input = (float *) mxGetData(prhs[0]);
     float gamma = (float) mxGetScalar(prhs[1]);
 
-    GPUPottsSolver gpuPottsSolver(input, gamma, 2, dims[0], dims[1], dims[2]);
-
-    gpuPottsSolver.solvePottsProblem4ADMM();
-
-    gpuPottsSolver.downloadOutputMatlab(output);
+//    GPUPottsSolver gpuPottsSolver(input, gamma, 2, dims[0], dims[1], dims[2]);
+//
+//    gpuPottsSolver.solvePottsProblem4ADMM();
+//
+//    gpuPottsSolver.downloadOutputMatlab(output);
 }

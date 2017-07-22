@@ -4,28 +4,13 @@
 #include <cmath>
 #include <cstdlib>
 #include "util/CudaBuffer.h"
-#include "Image.h"
+//#include "Image.h"
 #include "cublas_v2.h"
 #include "cuda_runtime.h"
 #include "PottsSolver.h"
 
 class GPUPottsSolver : public PottsSolver{
 private:
-//    float gamma;
-//    float gammaPrime;
-//    float gammaPrimeC;
-//    float gammaPrimeD;
-//    float mu;
-//    float muStep;
-//    float error;
-//    float stopTol;
-//    float fNorm;
-//    uint32_t chunkSize;
-//    uint32_t chunkSizeOffset;
-//
-//    uint32_t h;
-//    uint32_t w;
-//    uint32_t nc;
 
     CudaBuffer<float> d_inputImage;
     CudaBuffer<float> u;
@@ -60,13 +45,9 @@ private:
 
     cublasHandle_t cublasHandle;
 
-//    float computeFNorm(float* inputImage);
-
     float updateError();
 
     void clearHelperMemory();
-
-//    void updateChunkSizeOffset();
 
     void horizontalPotts4ADMM(uint32_t nHor, uint32_t colorOffset);
     void horizontalPotts8ADMM(uint32_t nHor, uint32_t colorOffsetHorVer);
@@ -89,7 +70,9 @@ public:
 
     void solvePottsProblem8ADMM();
 
-    void downloadOutputImage(ImageRGB outputImage);
+//    void downloadOutputImage(ImageRGB outputImage);
+
+    float* getResultPtr();
 
     void downloadOutputMatlab(float* outputImage);
 

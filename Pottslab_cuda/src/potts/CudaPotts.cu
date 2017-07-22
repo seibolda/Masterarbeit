@@ -8,7 +8,6 @@
 #endif
 
 #include <cstdint>
-#include <cmath>
 
 __host__ __device__ void setWeights(float* weights, uint32_t index) {
     weights[index] = 1;

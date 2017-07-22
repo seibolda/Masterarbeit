@@ -3,9 +3,8 @@
 
 #include <cstdint>
 #include <cstdlib>
-#include "Image.h"
+//#include "Image.h"
 #include "PottsSolver.h"
-#include "potts/CudaPotts.cu"
 
 class CPUPottsSolver: public PottsSolver {
 private:
@@ -56,7 +55,9 @@ public:
 
     void solvePottsProblem8ADMM();
 
-    void downloadOutputImage(ImageRGB outputImage);
+//    void downloadOutputImage(ImageRGB outputImage);
+
+    float* getResultPtr();
 
     void downloadOutputMatlab(float* outputImage);
 

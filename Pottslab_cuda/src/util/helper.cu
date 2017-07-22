@@ -100,7 +100,7 @@ void showImage(string title, const cv::Mat &mat, int x, int y)
     cv::imshow(wTitle, mat);
 }
 
-void showHistogram256(const char *windowTitle, int *histogram, int windowX, int windowY)
+/*void showHistogram256(const char *windowTitle, int *histogram, int windowX, int windowY)
 {
   const int nbins = 256;
   cv::Mat canvas = cv::Mat::ones(125, 512, CV_8UC3);
@@ -122,7 +122,7 @@ void showHistogram256(const char *windowTitle, int *histogram, int windowX, int 
   }
 
   showImage(windowTitle, canvas, windowX, windowY);
-}
+}*/
 
 
 

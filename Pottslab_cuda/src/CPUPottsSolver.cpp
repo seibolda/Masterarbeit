@@ -1,4 +1,5 @@
 #include "CPUPottsSolver.h"
+#include "potts/CudaPotts.cu"
 
 CPUPottsSolver::CPUPottsSolver(float *inputImage, float newGamma, float newMuStep, size_t newW, size_t newH,
                                size_t newNc, uint32_t newChunkSize, float newStopTol, uint8_t chunkOffsetChangeType,
@@ -167,7 +168,7 @@ void CPUPottsSolver::solvePottsProblem4ADMM() {
 
     float stopThreshold = stopTol * fNorm;
 
-    ImageRGB testImage(w, h);
+//    ImageRGB testImage(w, h);
 
     for(uint32_t row = 0; row < h; ++row) {
         for(uint32_t col = 0; col < w; ++col) {
@@ -315,7 +316,7 @@ void CPUPottsSolver::diagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffsetDia
     for(uint32_t row = 0; row < h; ++row) {
         for(uint32_t col = 0; col < w; ++col) {
             for(uint32_t c = 0; c < nc; ++c) {
-                length = min(h, w - col);
+                length = std::min(h, w - col);
                 if(row < length) {
                     copyDataBackDiagonallyUpper(w_, arrJ, m, wPotts, row, col, c, w, h, colorOffsetDiags, nDiags);
                 }
@@ -325,7 +326,7 @@ void CPUPottsSolver::diagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffsetDia
     for(uint32_t row = 1; row < h; ++row) {
         for(uint32_t col = 0; col < w; ++col) {
             for(uint32_t c = 0; c < nc; ++c) {
-                length = min(h - row, w);
+                length = std::min(h - row, w);
                 if(col < length) {
                     copyDataBackDiagonallyLower(w_, arrJ, m, wPotts, row, col, c, w, h, colorOffsetDiags, nDiags);
                 }
@@ -364,7 +365,7 @@ void CPUPottsSolver::antidiagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffse
     for(uint32_t row = 0; row < h; ++row) {
         for(uint32_t col = 0; col < w; ++col) {
             for(uint32_t c = 0; c < nc; ++c) {
-                length = min(h, w - col);
+                length = std::min(h, w - col);
                 if(row < length) {
                     copyDataBackAntiDiagonallyUpper(z, arrJ, m, wPotts, row, col, c, w, h, colorOffsetDiags, nDiags);
                 }
@@ -374,7 +375,7 @@ void CPUPottsSolver::antidiagonalPotts8ADMM(uint32_t nDiags, uint32_t colorOffse
     for(uint32_t row = 1; row < h; ++row) {
         for(uint32_t col = 0; col < w; ++col) {
             for(uint32_t c = 0; c < nc; ++c) {
-                length = min(h - row, w);
+                length = std::min(h - row, w);
                 if(col < length) {
                     copyDataBackAntiDiagonallyLower(z, arrJ, m, wPotts, row, col, c, w, h, colorOffsetDiags, nDiags);
                 }
@@ -397,10 +398,10 @@ void CPUPottsSolver::solvePottsProblem8ADMM() {
     uint32_t nVer = h;
     uint32_t colorOffsetHorVer = (w+1)*(h+1);
 
-    uint32_t nDiags = min(h, w);
-    uint32_t colorOffsetDiags = (min(h, w)+1)*(w+h-1);
+    uint32_t nDiags = std::min(h, w);
+    uint32_t colorOffsetDiags = (std::min(h, w)+1)*(w+h-1);
 
-    ImageRGB testImage(w, h);
+//    ImageRGB testImage(w, h);
 
     float omegaC = sqrt(2.0) - 1.0;
     float omegaD = 1.0 - sqrt(2.0)/2.0;
@@ -464,10 +465,14 @@ void CPUPottsSolver::solvePottsProblem8ADMM() {
     }
 }
 
-void CPUPottsSolver::downloadOutputImage(ImageRGB outputImage) {
+/*void CPUPottsSolver::downloadOutputImage(ImageRGB outputImage) {
     outputImage.SetRawData(u);
+}*/
+
+float* CPUPottsSolver::getResultPtr() {
+    return u;
 }
 
 void CPUPottsSolver::downloadOutputMatlab(float *outputImage) {
-    // TODO
+    memcpy(outputImage, u, h*w*nc*sizeof(float));
 }

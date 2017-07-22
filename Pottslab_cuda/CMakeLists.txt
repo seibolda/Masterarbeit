@@ -18,7 +18,7 @@ set(SOURCE_FILES
         src/util/helper.cu
         src/util/CudaBuffer.cu
         src/Image.cpp
-        src/PottsSolver.cpp
+        src/Solver.cu
 )
 
 cuda_add_executable(Pottslab_cuda ${SOURCE_FILES})
