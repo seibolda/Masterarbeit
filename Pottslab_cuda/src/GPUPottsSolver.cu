@@ -55,11 +55,11 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
     block = dim3(32, 32, 1); // 32*32 = 1024 threads
     // ensure enough blocks to cover w * h elements (round up)
     grid = dim3((w + block.x - 1) / block.x, (h + block.y - 1) / block.y, nc);
-    blockHorizontal = dim3(128, 8, 1);
+    blockHorizontal = dim3(1024, 1, 1);
     gridHorizontal = dim3((h + blockHorizontal.x - 1) / blockHorizontal.x, (ceil(((double)w / (double)chunkSize)) + 1 + blockHorizontal.y - 1) / blockHorizontal.y, 1);
-    blockVertical = dim3(128, 8, 1);
+    blockVertical = dim3(1024, 1, 1);
     gridVertical = dim3((w + blockVertical.x - 1) / blockVertical.x, (ceil(((double)h / (double)chunkSize)) + 1 + blockHorizontal.y - 1) / blockHorizontal.y, 1);//dim3((w + blockVertical.x - 1) / blockVertical.x, 1, 1);
-    blockDiagonal = dim3(128, 8, 1);
+    blockDiagonal = dim3(1024, 1, 1);
     gridDiagonal = dim3((h + w + blockDiagonal.x - 1) / blockDiagonal.x, (ceil(((double)w / (double)chunkSize)) + 1 + blockDiagonal.y - 1) / blockDiagonal.y, 1);
 
     CUBLAS_CHECK(cublasCreate(&cublasHandle));

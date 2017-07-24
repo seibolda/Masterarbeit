@@ -2,10 +2,10 @@ close all;
 
 addpath(genpath('Pottslab0.42'));
 
-fig1 = figure(1);
-set(fig1, 'Name', 'result', 'OuterPosition', [0, 600, 550, 500]);
+%fig1 = figure(1);
+%set(fig1, 'Name', 'result', 'OuterPosition', [0, 600, 550, 500]);
 
-imgOrg = single(double(imread('data/images/archutah.png'))) / 255;
+imgOrg = single(double(imread('data/images/archutah_med.png'))) / 255;
 gamma = 0.1;
 
 %nBins = 255;
@@ -18,9 +18,13 @@ gamma = 0.1;
 %h = histogram(testData*nBins, nBins, 'BinWidth',0.8);
 %
 
-%result = minL2Potts2DADMM(imgOrg, gamma, 'verbose', true, 'isotropic', false, 'multiThreading', true);
-result = cuda_pottslab(imgOrg, gamma, 'verbose', true, 'chunkSize', 10);
+%f = @() minL2Potts2DADMM(imgOrg, gamma, 'verbose', false, 'isotropic', true, 'multiThreading', true);
+f = @() cuda_pottslab(imgOrg, gamma, 'verbose', false, 'isGPU', true);
 
-imshow(result);
+timeNeeded = timeit(f);
+
+fprintf('Time: %f\n', timeNeeded*1000);
+
+%imshow(result);
 %figure;
 %histogram(result, nBins, 'BinWidth',0.8);
