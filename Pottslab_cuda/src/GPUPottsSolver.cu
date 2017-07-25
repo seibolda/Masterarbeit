@@ -184,7 +184,7 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
 
         updateChunkSizeOffset();
 
-        if(iteration > 25)
+        if(iteration > maxIterations)
             break;
     }
 
@@ -312,7 +312,7 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
 
         updateChunkSizeOffset();
 
-        if(iteration > 25)
+        if(iteration > maxIterations)
             break;
     }
 }
