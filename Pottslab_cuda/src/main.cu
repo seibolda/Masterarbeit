@@ -15,6 +15,9 @@ int main(int argc, char **argv) {
     // We will do it right here, so that the run time measurements are accurate
     cudaDeviceSynchronize();  CUDA_CHECK;
 
+    Timer timer;
+    timer.start();
+
     uint32_t height = 0;
     uint32_t width = 0;
     uint32_t numberChannels = 0;
@@ -29,7 +32,7 @@ int main(int argc, char **argv) {
     bool isotropic = true;
     bool isGPU = false;
 
-    Timer timer;
+
 
     string usageString = " -i <image> -gamma <float_value> (-chunksize <uint_value> -stoptol <float_value>";
     usageString += " -chunkoffsetchangetype [0|1|2] -maxiterations <uint_value> -v [true|false]";
@@ -94,18 +97,15 @@ int main(int argc, char **argv) {
 
 
 
-
     if(isGPU) {
         GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, muStep, width, height, numberChannels, chunkSize,
                                       stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError);
 
-        timer.start();
         if(isotropic) {
             gpuPottsSolver.solvePottsProblem8ADMM();
         } else {
             gpuPottsSolver.solvePottsProblem4ADMM();
         }
-        timer.end();
 
         outputImage.SetRawData(gpuPottsSolver.getResultPtr());
         inputImage.Show("Input Image", 100, 100);
@@ -115,13 +115,11 @@ int main(int argc, char **argv) {
         CPUPottsSolver cpuPottsSolver(inputImage.GetRawDataPtr(), gamma, muStep, width, height, numberChannels, chunkSize,
                                       stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError);
 
-        timer.start();
         if(isotropic) {
             cpuPottsSolver.solvePottsProblem8ADMM();
         } else {
             cpuPottsSolver.solvePottsProblem4ADMM();
         }
-        timer.end();
 
         float* tmp = (float*) malloc(height*width*numberChannels*sizeof(float));
         memcpy(tmp, cpuPottsSolver.getResultPtr(), height*width*numberChannels*sizeof(float));
@@ -136,11 +134,12 @@ int main(int argc, char **argv) {
 
 
 
+    cvDestroyAllWindows();
+
+    timer.end();
     if(verbose) {
         cout << "Duration: " << timer.get() * 1000 << "ms" << endl;
     }
-
-    cvDestroyAllWindows();
 
     return 0;
 }
