@@ -2,7 +2,7 @@
 #include "potts/CudaPotts.cu"
 
 CPUPottsSolver::CPUPottsSolver(float *inputImage, float newGamma, float newMuStep, size_t newW, size_t newH,
-                               size_t newNc, uint32_t newChunkSize, float newStopTol, uint8_t chunkOffsetChangeType,
+                               size_t newNc, uint32_t newChunkSize, float newStopTol, uint8_t newChunkOffsetChangeType,
                                uint32_t newMaxIterations, bool isVerbose, bool isQuadraticError) :
         PottsSolver(inputImage, newGamma, newMuStep, newW, newH, newNc, newChunkSize, newStopTol, newChunkOffsetChangeType,
                     newMaxIterations, isVerbose, isQuadraticError) {
