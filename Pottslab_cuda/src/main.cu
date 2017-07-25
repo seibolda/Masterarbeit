@@ -123,7 +123,9 @@ int main(int argc, char **argv) {
         }
         timer.end();
 
-        outputImage.SetRawData(cpuPottsSolver.getResultPtr());
+        float* tmp = (float*) malloc(height*width*numberChannels*sizeof(float));
+        memcpy(tmp, cpuPottsSolver.getResultPtr(), height*width*numberChannels*sizeof(float));
+        outputImage.SetRawData(tmp);
 
         inputImage.Show("Input Image", 100, 100);
         outputImage.Show("Output Image", 100+width, 100);
