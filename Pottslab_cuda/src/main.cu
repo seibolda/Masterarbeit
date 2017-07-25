@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
     uint32_t chunkSize = 0;
     float stopTol = 1e-10;
     uint8_t chunkOffsetChangeType = 0;
-    uint32_t maxIterations = 25;
+    uint32_t maxIterations = 100;
     bool verbose = false;
     bool quadraticError = true;
     bool isotropic = true;
