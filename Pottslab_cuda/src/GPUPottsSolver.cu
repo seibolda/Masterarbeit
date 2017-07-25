@@ -7,8 +7,8 @@
 #include "potts/CudaKernels8ADMM.cu"
 
 GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc,
-                               uint32_t newChunkSize, float newStopTol, uint8_t newChunkOffsetChangeType,
-                               uint32_t newMaxIterations, bool isVerbose, bool isQuadraticError) :
+                               uint32_t newChunkSize, float newStopTol, uint8_t newChunkOffsetChangeType, uint32_t newMaxIterations,
+                               bool isVerbose, bool isQuadraticError, uint32_t newXBlockSize, uint32_t newYBlockSize) :
         PottsSolver(inputImage, newGamma, newMuStep, newW, newH, newNc, newChunkSize, newStopTol, newChunkOffsetChangeType,
         newMaxIterations, isVerbose, isQuadraticError) {
 
@@ -55,11 +55,11 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
     block = dim3(32, 32, 1); // 32*32 = 1024 threads
     // ensure enough blocks to cover w * h elements (round up)
     grid = dim3((w + block.x - 1) / block.x, (h + block.y - 1) / block.y, nc);
-    blockHorizontal = dim3(1024, 1, 1);
+    blockHorizontal = dim3(newXBlockSize, newYBlockSize, 1);
     gridHorizontal = dim3((h + blockHorizontal.x - 1) / blockHorizontal.x, (ceil(((double)w / (double)chunkSize)) + 1 + blockHorizontal.y - 1) / blockHorizontal.y, 1);
-    blockVertical = dim3(1024, 1, 1);
+    blockVertical = blockHorizontal;//dim3(1024, 1, 1);
     gridVertical = dim3((w + blockVertical.x - 1) / blockVertical.x, (ceil(((double)h / (double)chunkSize)) + 1 + blockHorizontal.y - 1) / blockHorizontal.y, 1);//dim3((w + blockVertical.x - 1) / blockVertical.x, 1, 1);
-    blockDiagonal = dim3(1024, 1, 1);
+    blockDiagonal = blockHorizontal;//dim3(1024, 1, 1);
     gridDiagonal = dim3((h + w + blockDiagonal.x - 1) / blockDiagonal.x, (ceil(((double)w / (double)chunkSize)) + 1 + blockDiagonal.y - 1) / blockDiagonal.y, 1);
 
     CUBLAS_CHECK(cublasCreate(&cublasHandle));
@@ -174,9 +174,9 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
 
         error = updateError();
 
-        if (verbose) {
-            printf("Iteration: %d error: %f\n", iteration, error);
-        }
+//        if (verbose) {
+//            printf("Iteration: %d error: %f\n", iteration, error);
+//        }
 
         iteration++;
 
@@ -186,6 +186,10 @@ void GPUPottsSolver::solvePottsProblem4ADMM() {
 
         if(iteration > maxIterations)
             break;
+    }
+
+    if (verbose) {
+        printf("Iterations: %d\n", iteration);
     }
 
 }
@@ -302,9 +306,9 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
 
         error = updateError();
 
-        if (verbose) {
-            printf("Iteration: %d error: %f\n", iteration, error);
-        }
+//        if (verbose) {
+//            printf("Iteration: %d error: %f\n", iteration, error);
+//        }
 
         iteration++;
 
@@ -314,6 +318,10 @@ void GPUPottsSolver::solvePottsProblem8ADMM() {
 
         if(iteration > maxIterations)
             break;
+    }
+
+    if (verbose) {
+        printf("Iterations: %d\n", iteration);
     }
 }
 

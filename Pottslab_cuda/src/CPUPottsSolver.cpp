@@ -208,9 +208,9 @@ void CPUPottsSolver::solvePottsProblem4ADMM() {
 
         error = updateError();
 
-        if (verbose) {
-            printf("Iteration: %d error: %f\n", iteration, error);
-        }
+//        if (verbose) {
+//            printf("Iteration: %d error: %f\n", iteration, error);
+//        }
 
         iteration++;
 
@@ -220,6 +220,10 @@ void CPUPottsSolver::solvePottsProblem4ADMM() {
 
         if(iteration > maxIterations)
             break;
+    }
+
+    if (verbose) {
+        printf("Iterations: %d\n", iteration);
     }
 }
 
@@ -450,9 +454,9 @@ void CPUPottsSolver::solvePottsProblem8ADMM() {
 
         error = updateError();
 
-        if (verbose) {
-            printf("Iteration: %d error: %f\n", iteration, error);
-        }
+//        if (verbose) {
+//            printf("Iteration: %d error: %f\n", iteration, error);
+//        }
 
         iteration++;
 
@@ -462,6 +466,10 @@ void CPUPottsSolver::solvePottsProblem8ADMM() {
 
         if(iteration > maxIterations)
             break;
+    }
+
+    if (verbose) {
+        printf("Iterations: %d\n", iteration);
     }
 }
 

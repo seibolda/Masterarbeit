@@ -39,13 +39,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     bool quadraticError = (bool) mxGetScalar(prhs[8]);
     bool isotropic = (bool) mxGetScalar(prhs[9]);
     bool isGPU = (bool) mxGetScalar(prhs[10]);
+    int xBlockSize = (int) mxGetScalar(prhs[11]);
+    int yBlockSize = (int) mxGetScalar(prhs[12]);
 
 //    mexPrintf("gamma: %f width: %d height: %d numCh: %d muStep: %f chunkSize: %d stopTol: %f chunkChange: %d maxIt: %d verbose: %d quadError: %d isotrop: %d gpu: %d\n",
 //              gamma, width, height, numberChannels, muStep, chunkSize, stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError, isotropic, isGPU);
 
     if(isGPU) {
         GPUPottsSolver gpuPottsSolver(input, gamma, muStep, width, height, numberChannels, chunkSize,
-                                      stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError);
+                                      stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError, xBlockSize, yBlockSize);
 
         if(isotropic) {
             gpuPottsSolver.solvePottsProblem8ADMM();

@@ -27,6 +27,8 @@ int main(int argc, char **argv) {
     float stopTol = 1e-10;
     uint8_t chunkOffsetChangeType = 0;
     uint32_t maxIterations = 100;
+    uint32_t xBlockSize = 256;
+    uint32_t yBlockSize = 4;
     bool verbose = false;
     bool quadraticError = true;
     bool isotropic = true;
@@ -73,6 +75,18 @@ int main(int argc, char **argv) {
         maxIterations = ::atoi(maxIterations_str.c_str());
     }
 
+    string xBlockSize_str = "";
+    ret = getParam("xblocksize", xBlockSize_str, argc, argv);
+    if(ret) {
+        xBlockSize = ::atoi(xBlockSize_str.c_str());
+    }
+
+    string yBlockSize_str = "";
+    ret = getParam("yblocksize", yBlockSize_str, argc, argv);
+    if(ret) {
+        yBlockSize = ::atoi(yBlockSize_str.c_str());
+    }
+
     string verbose_str = "";
     ret = getParam("v", verbose_str, argc, argv);
     verbose = ret;
@@ -99,7 +113,7 @@ int main(int argc, char **argv) {
 
     if(isGPU) {
         GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, muStep, width, height, numberChannels, chunkSize,
-                                      stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError);
+                                      stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError, xBlockSize, yBlockSize);
 
         if(isotropic) {
             gpuPottsSolver.solvePottsProblem8ADMM();
@@ -107,10 +121,10 @@ int main(int argc, char **argv) {
             gpuPottsSolver.solvePottsProblem4ADMM();
         }
 
-        outputImage.SetRawData(gpuPottsSolver.getResultPtr());
-        inputImage.Show("Input Image", 100, 100);
-        outputImage.Show("Output Image", 100+width, 100);
-        cv::waitKey(0);
+//        outputImage.SetRawData(gpuPottsSolver.getResultPtr());
+//        inputImage.Show("Input Image", 100, 100);
+//        outputImage.Show("Output Image", 100+width, 100);
+//        cv::waitKey(0);
     } else {
         CPUPottsSolver cpuPottsSolver(inputImage.GetRawDataPtr(), gamma, muStep, width, height, numberChannels, chunkSize,
                                       stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError);
@@ -121,13 +135,13 @@ int main(int argc, char **argv) {
             cpuPottsSolver.solvePottsProblem4ADMM();
         }
 
-        float* tmp = (float*) malloc(height*width*numberChannels*sizeof(float));
-        memcpy(tmp, cpuPottsSolver.getResultPtr(), height*width*numberChannels*sizeof(float));
-        outputImage.SetRawData(tmp);
+//        float* tmp = (float*) malloc(height*width*numberChannels*sizeof(float));
+//        memcpy(tmp, cpuPottsSolver.getResultPtr(), height*width*numberChannels*sizeof(float));
+//        outputImage.SetRawData(tmp);
 
-        inputImage.Show("Input Image", 100, 100);
-        outputImage.Show("Output Image", 100+width, 100);
-        cv::waitKey(0);
+//        inputImage.Show("Input Image", 100, 100);
+//        outputImage.Show("Output Image", 100+width, 100);
+//        cv::waitKey(0);
     }
 
 
