@@ -1,4 +1,4 @@
-function result = cuda_pottslab(input, gamma, varargin)
+function result = cuda_potts_solver(input, gamma, varargin)
 
 % nvcc -c -Xcompiler -fPIC -std=c++11 Pottslab_cuda/src/Solver.cu -D_MWAITXINTRIN_H_INCLUDED
 %feval('mex -largeArrayDims Pottslab_cuda/src/main_mex.cpp')
