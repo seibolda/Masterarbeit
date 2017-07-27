@@ -8,7 +8,7 @@
 
 GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc,
                                uint32_t newChunkSize, float newStopTol, uint8_t newChunkOffsetChangeType, uint32_t newMaxIterations,
-                               bool isVerbose, bool isQuadraticError, uint32_t newXBlockSize, uint32_t newYBlockSize) :
+                               bool isVerbose, bool isQuadraticError, uint32_t newXBlockSize, uint32_t newYBlockSize, int deviceNumber) :
         PottsSolver(inputImage, newGamma, newMuStep, newW, newH, newNc, newChunkSize, newStopTol, newChunkOffsetChangeType,
         newMaxIterations, isVerbose, isQuadraticError) {
 
@@ -63,6 +63,9 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
     gridDiagonal = dim3((h + w + blockDiagonal.x - 1) / blockDiagonal.x, (ceil(((double)w / (double)chunkSize)) + 1 + blockDiagonal.y - 1) / blockDiagonal.y, 1);
 
     CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+    cudaSetDevice(deviceNumber);
+    CUDA_CHECK;
 }
 
 GPUPottsSolver::~GPUPottsSolver() {

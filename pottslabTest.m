@@ -21,6 +21,9 @@ gamma = 0.1;
 %f = @() minL2Potts2DADMM(imgOrg, gamma, 'verbose', false, 'isotropic', true, 'multiThreading', true);
 f = @() cuda_pottslab(imgOrg, gamma, 'verbose', false, 'isGPU', true);
 
+%result = minL2Potts2DADMM(imgOrg, gamma, 'verbose', false, 'isotropic', true, 'multiThreading', false);
+%result = cuda_pottslab(imgOrg, gamma, 'verbose', false, 'isGPU', false);
+
 timeNeeded = timeit(f);
 
 fprintf('Time: %f\n', timeNeeded*1000);

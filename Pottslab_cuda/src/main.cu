@@ -29,6 +29,7 @@ int main(int argc, char **argv) {
     uint32_t maxIterations = 100;
     uint32_t xBlockSize = 256;
     uint32_t yBlockSize = 4;
+    int deviceNumber = 0;
     bool verbose = false;
     bool quadraticError = true;
     bool isotropic = true;
@@ -87,6 +88,12 @@ int main(int argc, char **argv) {
         yBlockSize = ::atoi(yBlockSize_str.c_str());
     }
 
+    string deviceNumber_str = "";
+    ret = getParam("devicenumber", deviceNumber_str, argc, argv);
+    if(ret) {
+        deviceNumber = ::atoi(deviceNumber_str.c_str());
+    }
+
     string verbose_str = "";
     ret = getParam("v", verbose_str, argc, argv);
     verbose = ret;
@@ -113,7 +120,8 @@ int main(int argc, char **argv) {
 
     if(isGPU) {
         GPUPottsSolver gpuPottsSolver(inputImage.GetRawDataPtr(), gamma, muStep, width, height, numberChannels, chunkSize,
-                                      stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError, xBlockSize, yBlockSize);
+                                      stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError, xBlockSize,
+                                      yBlockSize, deviceNumber);
 
         if(isotropic) {
             gpuPottsSolver.solvePottsProblem8ADMM();

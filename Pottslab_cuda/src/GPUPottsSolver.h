@@ -62,7 +62,8 @@ private:
 public:
     GPUPottsSolver(float* inputImage, float newGamma, float newMuStep, size_t newW, size_t newH, size_t newNc,
                    uint32_t newChunkSize, float newStopTol, uint8_t newChunkOffsetChangeType,
-                   uint32_t newMaxIterations, bool isVerbose, bool isQuadraticError, uint32_t newXBlockSize, uint32_t newYBlockSize);
+                   uint32_t newMaxIterations, bool isVerbose, bool isQuadraticError, uint32_t newXBlockSize,
+                   uint32_t newYBlockSize, int deviceNumber);
 
     ~GPUPottsSolver();
 

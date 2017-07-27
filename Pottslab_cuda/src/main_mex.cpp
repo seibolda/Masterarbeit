@@ -6,13 +6,13 @@
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     // input validation
-    if (nrhs < 11 || nlhs > 1)
+    if (nrhs < 13 || nlhs > 1)
         mexErrMsgTxt("Wrong number of input/output arguments.");
-    /*if (!mxIsSingle(prhs[0]) || !mxIsSingle(prhs[1]))
-        mexErrMsgTxt("Inputs must be single arrays.");*/
-    if (mxIsComplex(prhs[0]) || mxIsComplex(prhs[1]))
+    if (!mxIsSingle(prhs[0]))
+        mexErrMsgTxt("Inputs must be single arrays.");
+    if (mxIsComplex(prhs[0]))
         mexErrMsgTxt("Inputs must be real arrays.");
-    if (mxIsSparse(prhs[0]) || mxIsSparse(prhs[1]))
+    if (mxIsSparse(prhs[0]))
         mexErrMsgTxt("Inputs must be dense arrays.");
 
     // create ouput array
@@ -41,13 +41,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     bool isGPU = (bool) mxGetScalar(prhs[10]);
     int xBlockSize = (int) mxGetScalar(prhs[11]);
     int yBlockSize = (int) mxGetScalar(prhs[12]);
+    int deviceNumber = (int) mxGetScalar(prhs[13]);
 
 //    mexPrintf("gamma: %f width: %d height: %d numCh: %d muStep: %f chunkSize: %d stopTol: %f chunkChange: %d maxIt: %d verbose: %d quadError: %d isotrop: %d gpu: %d\n",
 //              gamma, width, height, numberChannels, muStep, chunkSize, stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError, isotropic, isGPU);
 
     if(isGPU) {
-        GPUPottsSolver gpuPottsSolver(input, gamma, muStep, width, height, numberChannels, chunkSize,
-                                      stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError, xBlockSize, yBlockSize);
+        GPUPottsSolver gpuPottsSolver(input, gamma, muStep, width, height, numberChannels, chunkSize, stopTol, chunkOffsetChangeType,
+                                      maxIterations, verbose, quadraticError, xBlockSize, yBlockSize, deviceNumber);
 
         if(isotropic) {
             gpuPottsSolver.solvePottsProblem8ADMM();
