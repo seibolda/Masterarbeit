@@ -4,7 +4,7 @@ addpath(genpath('Pottslab0.42'));
 setPLJavaPath(true);
 installPottslab;
 
-imgOrg = single(double(imread('data/images/coffee2_sm.png'))) / 255;
+imgOrg = single(double(imread('data/images/archutah.png'))) / 255;
 gamma = 0.1;
 
 [~, hostname] = system('hostname');
