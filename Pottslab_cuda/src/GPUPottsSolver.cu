@@ -12,6 +12,9 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
         PottsSolver(inputImage, newGamma, newMuStep, newW, newH, newNc, newChunkSize, newStopTol, newChunkOffsetChangeType,
         newMaxIterations, isVerbose, isQuadraticError) {
 
+    cudaSetDevice(deviceNumber);
+    CUDA_CHECK;
+
     d_inputImage.CreateBuffer(h*w*nc);
     d_inputImage.UploadData(inputImage);
     u.CreateBuffer(h*w*nc);
@@ -64,8 +67,6 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
 
     CUBLAS_CHECK(cublasCreate(&cublasHandle));
 
-    cudaSetDevice(deviceNumber);
-    CUDA_CHECK;
 }
 
 GPUPottsSolver::~GPUPottsSolver() {
