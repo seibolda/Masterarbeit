@@ -12,6 +12,13 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
         PottsSolver(inputImage, newGamma, newMuStep, newW, newH, newNc, newChunkSize, newStopTol, newChunkOffsetChangeType,
         newMaxIterations, isVerbose, isQuadraticError) {
 
+    int availableDevices = 0;
+    cudaGetDeviceCount(&availableDevices);
+    CUDA_CHECK;
+    if(deviceNumber >= availableDevices) {
+        printf("\nSet wrong device number!\n\n");
+        exit(0);
+    }
     cudaSetDevice(deviceNumber);
     CUDA_CHECK;
 
@@ -70,6 +77,7 @@ GPUPottsSolver::GPUPottsSolver(float* inputImage, float newGamma, float newMuSte
 }
 
 GPUPottsSolver::~GPUPottsSolver() {
+    d_inputImage.DestroyBuffer();
     u.DestroyBuffer();
     v.DestroyBuffer();
     w_.DestroyBuffer();

@@ -1,6 +1,6 @@
 function result = cuda_potts_solver(input, gamma, varargin)
 
-% nvcc -c -Xcompiler -fPIC -std=c++11 Pottslab_cuda/src/Solver.cu -D_MWAITXINTRIN_H_INCLUDED
+% nvcc -c -Xcompiler -fPIC -std=c++11 Solver.cu -D_MWAITXINTRIN_H_INCLUDED
 %feval('mex -largeArrayDims Pottslab_cuda/src/main_mex.cpp')
 %mex -largeArrayDims Pottslab_cuda/src/main_mex.cpp Pottslab_cuda/src/Solver.o Pottslab_cuda/src/util/helper.o Pottslab_cuda/src/util/CudaBuffer.o -I"/usr/local/cuda-7.5/targets/x86_64-linux/include/" -I"/usr/local/include/opencv2" -L"/usr/local/cuda/lib64/" -lcudart -lcublas
 
