@@ -38,6 +38,12 @@ CVMatPtr Image::GetMatrixCV()
 	return &m_mat;
 }
 
+void Image::SaveImage(std::string name)
+{
+    convert_layered_to_mat();
+	cv::imwrite(name, m_mat*255.0f);
+}
+
 size_t Image::GetSizeInBytes()
 {
 	return (this->GetHeight()*this->GetWidth()*this->GetChannels()*sizeof(float));

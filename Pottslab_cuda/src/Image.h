@@ -46,6 +46,7 @@ public:
 	bool IsNormalized();
 	
 	CVMatPtr GetMatrixCV();
+    void SaveImage(std::string name);
 	RawBufferPtr GetRawDataPtr();
 
 private:

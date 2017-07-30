@@ -27,3 +27,6 @@ assert(par.muStep > 1, 'Variable muStep must be > 1.');
 assert(par.stopTol > 0, 'Stopping tolerance must be > 0.');
 
 result = main_mex(input, gamma, par.muStep, par.chunkSize, par.stopTol, par.chunkOffsetChangeType, par.maxIterations, par.verbose, par.quadraticError, par.isotropic, par.isGPU, par.xblocksize, par.yblocksize, par.deviceNumber);
+
+result = double(result);
+result = round(result * 255)/255;

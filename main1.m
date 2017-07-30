@@ -6,7 +6,7 @@ addpath(genpath('minFunc_2012'));
 addpath(genpath('Pottslab0.42'));
 setPLJavaPath(true);
 
-feval('mex -largeArrayDims main_mex.cpp GPUPottsSolverImpl.o helper.o CudaBuffer.o -I"/usr/local/cuda-7.5/targets/x86_64-linux/include/" -L"/usr/local/cuda/lib64/" -lcudart -lcublas')
+%feval('mex -largeArrayDims main_mex.cpp GPUPottsSolverImpl.o helper.o CudaBuffer.o -I"/usr/local/cuda-7.5/targets/x86_64-linux/include/" -L"/usr/local/cuda/lib64/" -lcudart -lcublas')
 
 % load data
 
@@ -31,13 +31,13 @@ gamma = 0.1;
 alpha = 1;
 delta = 1;
 
-verbose = 1;
+verbose = 0;
 
-%for beta = 0.01:0.33:10
-%    for lambda = 0.01:0.33:10
-%        for gamma = 0.01:0.33:10
-%            for alpha = 0.01:0.33:10
-%               for delta = 0.01:033:10
+for beta = 0.01:0.333:3
+    for lambda = 0.01:0.333:3
+        for gamma = 0.01:0.333:3
+            for alpha = 0.01:0.333:3
+               for delta = 0.01:0333:3
 
                     result = singleViewReconstructionWithShapeFromShading(imgOrg, silhouetteOrg, reflectanceOrg, shading_MITOrg, lambda, beta, Vol, tau_u, tau_c, gamma, alpha, delta, verbose);
 
@@ -52,11 +52,11 @@ verbose = 1;
 
                     close all;
 
-%               end
-%            end
-%        end
-%    end
-%end
+               end
+            end
+        end
+    end
+end
 
 
 

@@ -49,26 +49,26 @@ CPUPottsSolver::CPUPottsSolver(float *inputImage, float newGamma, float newMuSte
 }
 
 CPUPottsSolver::~CPUPottsSolver() {
-    delete in;
-    delete u;
-    delete v;
-    delete w_;
-    delete z;
-    delete lam1;
-    delete lam2;
-    delete lam3;
-    delete lam4;
-    delete lam5;
-    delete lam6;
-    delete temp;
-    delete weights;
-    delete weightsPrime;
+    free((void*)in);
+    free((void*)u);
+    free((void*)v);
+    free((void*)w_);
+    free((void*)z);
+    free((void*)lam1);
+    free((void*)lam2);
+    free((void*)lam3);
+    free((void*)lam4);
+    free((void*)lam5);
+    free((void*)lam6);
+    free((void*)temp);
+    free((void*)weights);
+    free((void*)weightsPrime);
 
-    delete arrJ;
-    delete arrP;
-    delete m;
-    delete s;
-    delete wPotts;
+    free((void*)arrJ);
+    free((void*)arrP);
+    free((void*)m);
+    free((void*)s);
+    free((void*)wPotts);
 }
 
 float CPUPottsSolver::updateError() {
@@ -405,7 +405,7 @@ void CPUPottsSolver::solvePottsProblem8ADMM() {
     uint32_t nDiags = std::min(h, w);
     uint32_t colorOffsetDiags = (std::min(h, w)+1)*(w+h-1);
 
-//    ImageRGB testImage(w, h);
+    ImageRGB testImage(w, h);
 
     float omegaC = sqrt(2.0) - 1.0;
     float omegaD = 1.0 - sqrt(2.0)/2.0;
@@ -435,6 +435,7 @@ void CPUPottsSolver::solvePottsProblem8ADMM() {
 
 //        testImage.SetRawData(z);
 //        testImage.Show("Test Image", 100+w, 100);
+//        testImage.SaveImage("antidiagonal.png");
 //        cv::waitKey(0);
 
         for(uint32_t row = 0; row < h; ++row) {
