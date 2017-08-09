@@ -86,7 +86,6 @@ __host__ __device__  void doPottsStep(float* arrayToUpdate, uint32_t* arrJ, floa
         if (r < lower) break;
         l = arrJ[(r - 1 + y*n)*2];
     }
-
 }
 
 

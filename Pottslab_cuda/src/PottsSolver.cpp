@@ -49,7 +49,7 @@ float PottsSolver::computeFNorm(float *inputImage) {
 
 void PottsSolver::updateChunkSizeOffset() {
     if(1 == chunkOffsetChangeType && chunkSize < largerDimension) {
-        chunkSize++;
+        chunkSize+=2;
     } else if (2 == chunkOffsetChangeType && chunkSize < largerDimension) {
         chunkSizeOffset = (rand() % (chunkSize-1)) + 2;
         chunkSizeOffset = chunkSizeOffset % chunkSize;

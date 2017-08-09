@@ -27,8 +27,8 @@ int main(int argc, char **argv) {
     float stopTol = 1e-10;
     uint8_t chunkOffsetChangeType = 0;
     uint32_t maxIterations = 100;
-    uint32_t xBlockSize = 256;
-    uint32_t yBlockSize = 4;
+    uint32_t xBlockSize = 128;
+    uint32_t yBlockSize = 8;
     int deviceNumber = 0;
     bool verbose = false;
     bool quadraticError = true;
@@ -129,10 +129,10 @@ int main(int argc, char **argv) {
             gpuPottsSolver.solvePottsProblem4ADMM();
         }
 
-//        outputImage.SetRawData(gpuPottsSolver.getResultPtr());
-//        inputImage.Show("Input Image", 100, 100);
-//        outputImage.Show("Output Image", 100+width, 100);
-//        cv::waitKey(0);
+        outputImage.SetRawData(gpuPottsSolver.getResultPtr());
+        inputImage.Show("Input Image", 100, 100);
+        outputImage.Show("Output Image", 100+width, 100);
+        cv::waitKey(0);
     } else {
         CPUPottsSolver cpuPottsSolver(inputImage.GetRawDataPtr(), gamma, muStep, width, height, numberChannels, chunkSize,
                                       stopTol, chunkOffsetChangeType, maxIterations, verbose, quadraticError);
@@ -143,13 +143,13 @@ int main(int argc, char **argv) {
             cpuPottsSolver.solvePottsProblem4ADMM();
         }
 
-//        float* tmp = (float*) malloc(height*width*numberChannels*sizeof(float));
-//        memcpy(tmp, cpuPottsSolver.getResultPtr(), height*width*numberChannels*sizeof(float));
-//        outputImage.SetRawData(tmp);
+        float* tmp = (float*) malloc(height*width*numberChannels*sizeof(float));
+        memcpy(tmp, cpuPottsSolver.getResultPtr(), height*width*numberChannels*sizeof(float));
+        outputImage.SetRawData(tmp);
 
-//        inputImage.Show("Input Image", 100, 100);
-//        outputImage.Show("Output Image", 100+width, 100);
-//        cv::waitKey(0);
+        inputImage.Show("Input Image", 100, 100);
+        outputImage.Show("Output Image", 100+width, 100);
+        cv::waitKey(0);
     }
 
 

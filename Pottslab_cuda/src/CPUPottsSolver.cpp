@@ -405,7 +405,7 @@ void CPUPottsSolver::solvePottsProblem8ADMM() {
     uint32_t nDiags = std::min(h, w);
     uint32_t colorOffsetDiags = (std::min(h, w)+1)*(w+h-1);
 
-    ImageRGB testImage(w, h);
+//    ImageRGB testImage(w, h);
 
     float omegaC = sqrt(2.0) - 1.0;
     float omegaD = 1.0 - sqrt(2.0)/2.0;
@@ -443,8 +443,8 @@ void CPUPottsSolver::solvePottsProblem8ADMM() {
                 for (uint32_t c = 0; c < nc; ++c) {
                     uint32_t index = col + w * row + w * h * c;
                     temp[index] = u[index] - v[index];
-                    lam1[index] = lam1[index] + mu * (u[index] - u[index]);
-                    lam2[index] = lam2[index] + mu * (u[index] - v[index]);
+                    lam1[index] = lam1[index] + mu * (u[index] - v[index]);
+                    lam2[index] = lam2[index] + mu * (u[index] - w_[index]);
                     lam3[index] = lam3[index] + mu * (u[index] - z[index]);
                     lam4[index] = lam4[index] + mu * (v[index] - w_[index]);
                     lam5[index] = lam5[index] + mu * (v[index] - z[index]);

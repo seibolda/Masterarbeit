@@ -86,8 +86,8 @@ __global__ void updateLagrangeMultiplierKernel8ADMM(float* u, float* v, float* w
     if(x < w && y < h && c < nc) {
         uint32_t index = x + w * y + w * h * c;
         temp[index] = u[index] - v[index];
-        lam1[index] = lam1[index] + mu * (u[index] - u[index]);
-        lam2[index] = lam2[index] + mu * (u[index] - v[index]);
+        lam1[index] = lam1[index] + mu * (u[index] - v[index]);
+        lam2[index] = lam2[index] + mu * (u[index] - w_[index]);
         lam3[index] = lam3[index] + mu * (u[index] - z[index]);
         lam4[index] = lam4[index] + mu * (v[index] - w_[index]);
         lam5[index] = lam5[index] + mu * (v[index] - z[index]);
