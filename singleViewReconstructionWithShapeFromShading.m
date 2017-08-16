@@ -88,7 +88,7 @@ function [saveImg] = singleViewReconstructionWithShapeFromShading(imgOrg, silhou
         A = albedo .* A;
 
         l = A \ img_sil;
-        %l = l./(sqrt(sum(l.^2)));
+        l = l./(sqrt(sum(l.^2)));
 
 
 
